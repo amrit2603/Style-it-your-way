@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-20T06:30:00Z",
+  "title": "Design System: VYUMI Style It Your Way",
+  "extensions": {
+    "shadows": [
+      { "name": "launcher", "value": "0 5px 18px #18352824", "purpose": "Floating shopping assistant." },
+      { "name": "drawer", "value": "-10px 0 50px #00000014", "purpose": "Try-on overlay depth." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "700px" },
+      { "name": "compact-desktop", "value": "1000px" },
+      { "name": "wide", "value": "1600px" }
+    ]
+  },
+  "components": [],
+  "narrative": {
+    "northStar": "Garment photography with clear shopping and publishing controls",
+    "overview": "Portrait garment imagery leads the storefront. The merchant studio carries the same restrained palette into a compact guided workflow.",
+    "keyCharacteristics": ["Portrait catalog grid", "White and warm neutral surfaces", "Gold primary actions"],
+    "rules": [],
+    "dos": ["Keep product images prominent", "Keep focus visible", "Label demo results"],
+    "donts": ["Do not obscure product actions with the assistant launcher"]
+  }
+}

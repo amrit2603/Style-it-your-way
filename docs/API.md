@@ -20,13 +20,15 @@ Frontend calls `/api` on its own origin; Next rewrites to FastAPI. JSON errors: 
 - `POST /merchant/products` `{sku,name,category,description,price_minor?,currency:'INR',sizes?}` -> Product.
 - `GET /merchant/products/{id}` -> Product.
 - `PUT /merchant/products/{id}` same details plus `{version}` -> updated Product (409 on stale version). Source changes create a draft revision; existing public snapshot stays unchanged.
-- `POST /merchant/products/{id}/images` multipart `{file,role}` -> updated Product (10 references maximum). Originals visible to merchant, initially selected for public gallery. All published products still need an approved generated image.
+- `POST /merchant/products/{id}/images` multipart `{file,role}` -> updated Product (10 references maximum). Originals start private; the merchant separately selects any originals to display publicly. All published products still need an approved generated image.
 - `POST /merchant/products/{id}/reference` `{asset_id,version}` -> updated Product; requires an original.
 - `POST /merchant/products/{id}/images/{asset_id}/review` `{approved:boolean,public:boolean,version}` -> Product; originals can have visibility selected, generated approval applies to exact asset/revision.
 - `POST /merchant/products/{id}/publish` `{version}` -> Product; requires confirmed original reference and approved generated gallery image.
 - `POST /merchant/products/{id}/unpublish` empty JSON -> Product.
 - `GET /products` -> published Product[]. Optional `?category=saree|suit` filters.
 - `GET /products/{id}` -> published Product, 404 for draft/unpublished.
+
+Merchant GET product/list responses additionally include `status: Draft|Generating|Needs review|Published` and the current revision's `latest_job: Job|null`, so the studio can resume work after navigation or refresh. Personal jobs are never included in merchant catalog responses.
 
 ## PDF catalog
 
@@ -39,7 +41,7 @@ Frontend calls `/api` on its own origin; Next rewrites to FastAPI. JSON errors: 
 - `POST /merchant/products/{id}/generate` `{version,prompt?,idempotency_key}` -> Job.
 - `POST /style-it/photos` multipart `{file,consent:'true',height_cm?,usual_size?}` -> `{id,url,expires_at,checks:{accepted,code,message}}`. Requires adult/processing consent and actual validator acceptance in live mode. Fixtures explicitly labelled. Min short side 512, max 25MP, max 10MiB.
 - `POST /style-it/generate` `{user_image_id,product_id,idempotency_key}` -> Job. Uses immutable original reference from current published revision, not an AI-generated catalog image.
-- `GET /style-it/jobs/{id}` -> Job, owner only.
+- `GET /style-it/jobs/{id}` -> Job. Personal jobs are owner-only; merchant-role sessions may inspect catalog work in the one local merchant workspace.
 - `Job = {job_id,operation:'catalog'|'tryon',status:'queued'|'submitting'|'processing'|'completed'|'failed'|'expired'|'cancelled'|'needs_review',result_image_url?:string,error_code?:string,message?:string,fixture:boolean,expires_at?:number}`.
 - `GET /assets/{id}` -> private image/file, role/session authorization; `?download=true` sets download disposition.
 - `DELETE /assets/{id}` -> `{ok:true}`; personal deletion clears dependent outputs/jobs and late results are discarded; protected product sources return 409 until no published references remain.
