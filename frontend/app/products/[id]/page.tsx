@@ -3,7 +3,6 @@ import { categoryName, audienceOf } from "@/lib/catalog";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
-import TryOn from "@/components/TryOn";
 import Icon from "@/components/Icon";
 import { api, Product, money, errorText } from "@/lib/api";
 export default function ProductPage({
@@ -14,8 +13,7 @@ export default function ProductPage({
   const { id } = use(params);
   const [product, setProduct] = useState<Product>(),
     [active, setActive] = useState(0),
-    [error, setError] = useState(""),
-    [open, setOpen] = useState(false);
+    [error, setError] = useState("");
   useEffect(() => {
     api<Product>(`/products/${id}`)
       .then(setProduct)
@@ -86,10 +84,12 @@ export default function ProductPage({
                   {product.sizes}
                 </p>
               )}
-              <button className="gold wide" onClick={() => setOpen(true)}>
+              <Link className="gold wide" href={`/style/${product.id}`}>
                 <Icon name="spark" />
-                Try it on me
-              </button>
+                {product.category === "furniture"
+                  ? "See it in my room"
+                  : "Try it on me"}
+              </Link>
               <p className="privacy-note">
                 Your photo stays private and expires after one hour. A visual
                 preview, not a fit guarantee.
@@ -106,23 +106,16 @@ export default function ProductPage({
               <details>
                 <summary>Photo guidance</summary>
                 <p>
-                  Use a clear, well-lit photo of one consenting adult. A
-                  full-body view works best for sarees and suits. Avoid a
-                  face-only selfie, heavy blur and hidden garment areas.
+                  Use a clear, well-lit photo of one person who has agreed to
+                  photo processing. A full-body view works best for sarees and
+                  suits. Avoid a face-only selfie, heavy blur and hidden garment
+                  areas.
                 </p>
               </details>
             </div>
           </div>
         )}
       </main>
-      {open && product && (
-        <TryOn
-          product={product}
-          products={[product]}
-          onSelect={() => {}}
-          onClose={() => setOpen(false)}
-        />
-      )}
     </>
   );
 }

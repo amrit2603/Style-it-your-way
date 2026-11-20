@@ -49,9 +49,9 @@ Self-hosted Urbanist is the interface face. The centered VYUMI wordmark uses Geo
 
 ## Layout
 
-Desktop collection pages show four portrait columns; mobile shows two. Responsive changes occur at 700, 1000 and 1600 pixels. The merchant editor follows Details, Images, Generate, then Review & publish. The right-side shopper dialog becomes a narrow-screen full-width panel.
+Desktop collection pages show four portrait columns; mobile shows two. Responsive changes occur at 700, 1000 and 1600 pixels. The merchant editor follows Details, Images, Generate, then Review & publish. The product-specific styling page places the selected product beside photo guidance and generation controls. On mobile the product becomes a compact summary above the form.
 
-Collection tabs separate Everyone, Women, Men and Unisex. A labelled garment-type selector filters the portrait grid independently. The outfit builder lists selected complementary pieces with remove controls; it allows one top, one bottom and a jacket, or a full outfit and a jacket. Personal previews keep original and result adjacent with direct download. Consent and one photo upload start generation automatically; extra outfit controls stay collapsed until needed.
+Collection tabs separate Everyone, Women, Men and Unisex. A labelled garment-type selector filters the portrait grid independently. The styling page locks the selected product. Four labelled view buttons switch between independent photo/result states. Personal previews keep original and result adjacent with direct download. Consent and one photo upload start generation automatically; optional user-supplied measurements stay collapsed until needed.
 
 ## Elevation & Depth
 
@@ -63,7 +63,7 @@ Controls use small corners and thin borders. Product photographs remain rectangu
 
 ## Components
 
-Primary buttons use gold with white text and darken on hover. Keyboard focus has a visible green outline. Disabled and in-progress actions retain explanatory text. Gallery labels sit away from image watermarks. The native try-on dialog contains keyboard focus, closes with Escape and returns focus to its trigger. PDF cropping supports pointer and numeric controls. Reduced-motion preferences disable nonessential transitions.
+Primary buttons use gold with white text and darken on hover. Keyboard focus has a visible green outline. Disabled and in-progress actions retain explanatory text. Gallery labels sit away from image watermarks. Styling uses normal page navigation with a back-to-product link, visible keyboard focus and no focus trap. PDF cropping supports pointer and numeric controls. Reduced-motion preferences disable nonessential transitions.
 
 ## Do's and Don'ts
 

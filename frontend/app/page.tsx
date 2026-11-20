@@ -3,18 +3,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { categories, audiences, categoryName, audienceOf } from "@/lib/catalog";
 import Header from "@/components/Header";
-import TryOn from "@/components/TryOn";
+import { useRouter } from "next/navigation";
 import Icon from "@/components/Icon";
 import { api, Product, money, errorText, Health } from "@/lib/api";
 export default function Store() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]),
     [category, setCategory] = useState("all"),
     [audience, setAudience] = useState("all"),
     [search, setSearch] = useState(""),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [selected, setSelected] = useState<Product | null>(null),
-    [open, setOpen] = useState(false),
     [health, setHealth] = useState<Health>();
   const load = () => {
     setLoading(true);
@@ -43,7 +42,7 @@ export default function Store() {
       <Header />
       <nav className="category-nav" aria-label="Collections">
         {[
-          ["all", "All garments"],
+          ["all", "All products"],
           ["saree", "Sarees"],
           ["suit", "Suits"],
         ].map(([value, label]) => (
@@ -65,7 +64,10 @@ export default function Store() {
       <main className="store-main">
         <div className="collection-intro">
           <h1>Find your next look.</h1>
-          <p>Discover a garment. Build an outfit. See it on you.</p>
+          <p>
+            Clothing, accessories and pieces for your space. Preview your
+            choice.
+          </p>
         </div>
         <div className="collection-filters">
           <div
@@ -91,7 +93,7 @@ export default function Store() {
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option value="all">All garments</option>
+              <option value="all">All products</option>
               {categories.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -170,11 +172,13 @@ export default function Store() {
                 <button
                   className="gold wide"
                   onClick={() => {
-                    setSelected(p);
-                    setOpen(true);
+                    router.push(`/style/${p.id}`);
                   }}
                 >
-                  Style it on me <Icon name="arrow" size={16} />
+                  {p.category === "furniture"
+                    ? "See it in my room"
+                    : "Style it on me"}{" "}
+                  <Icon name="arrow" size={16} />
                 </button>
               </article>
             ))}
@@ -221,19 +225,15 @@ export default function Store() {
         className="chat-launcher"
         aria-label="Style it your way"
         title="Style it your way"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          document
+            .querySelector(".product-grid")
+            ?.scrollIntoView({ behavior: "smooth" });
+        }}
       >
         <Icon name="spark" />
         <span className="visually-hidden">Style it your way</span>
       </button>
-      {open && (
-        <TryOn
-          product={selected}
-          products={products}
-          onSelect={setSelected}
-          onClose={() => setOpen(false)}
-        />
-      )}
     </>
   );
 }

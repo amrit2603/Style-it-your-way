@@ -10,6 +10,9 @@ export const categories = [
   ["kurta", "Kurtas"],
   ["jacket", "Jackets & blazers"],
   ["lehenga", "Lehengas"],
+  ["shoes", "Shoes"],
+  ["watch", "Watches"],
+  ["furniture", "Furniture"],
 ] as const;
 export const audiences = [
   ["all", "Everyone"],

@@ -214,7 +214,15 @@ def publish(database, product_id, version):
         # Generated catalog photos lead; originals remain available for evidence.
         snapshot = {
             **product,
-            "images": sorted(gallery, key=lambda image: image["kind"] != "generated"),
+            "images": sorted(
+                gallery
+                + [
+                    image
+                    for image in product["images"]
+                    if image["kind"] == "original" and not image["public"]
+                ],
+                key=lambda image: image["kind"] != "generated",
+            ),
             "published": True,
         }
         db.execute(

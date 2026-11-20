@@ -43,6 +43,7 @@ function Editor({ id }: { id: string }) {
     ),
     [presentation, setPresentation] = useState("women"),
     [scene, setScene] = useState("studio"),
+    [view, setView] = useState("front"),
     [job, setJob] = useState<Job>(),
     [health, setHealth] = useState<Health>();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -63,6 +64,7 @@ function Editor({ id }: { id: string }) {
         setPresentation(audienceOf(p));
         if (p.latest_job) {
           setJob(p.latest_job);
+          setView(p.latest_job.view || "front");
           if (!terminal(p.latest_job)) setStep(2);
         }
         const pending = savedGeneration(`/merchant/products/${p.id}/generate`);
@@ -83,6 +85,12 @@ function Editor({ id }: { id: string }) {
             )
           )
             setScene(String(pending.payload.scene));
+          if (
+            ["front", "back", "left", "right"].includes(
+              String(pending.payload.view),
+            )
+          )
+            setView(String(pending.payload.view));
         }
         if (
           new URLSearchParams(window.location.search).get("step") ===
@@ -442,7 +450,9 @@ function Editor({ id }: { id: string }) {
                     onChange={(e) => setRole(e.target.value)}
                   >
                     <option value="main">Main garment</option>
-                    <option value="reverse">Reverse view</option>
+                    <option value="reverse">Back view</option>
+                    <option value="left">Left side</option>
+                    <option value="right">Right side</option>
                     <option value="detail">Fabric / detail</option>
                   </select>
                 </label>
@@ -600,6 +610,25 @@ function Editor({ id }: { id: string }) {
                   </label>
                 </div>
                 <label className="field">
+                  Camera view
+                  <select
+                    aria-label="Camera view"
+                    value={view}
+                    onChange={(e) => setView(e.target.value)}
+                    disabled={busy || !!(job && !terminal(job))}
+                  >
+                    <option value="front">Front</option>
+                    <option value="back">Back</option>
+                    <option value="left">Left side</option>
+                    <option value="right">Right side</option>
+                  </select>
+                </label>
+                <p className="muted">
+                  Add front, back and side product references for faithful
+                  details. Generate and review each view separately before
+                  publishing. Unseen details may be approximated.
+                </p>
+                <label className="field">
                   Additional shoot direction
                   <textarea
                     rows={4}
@@ -629,6 +658,7 @@ function Editor({ id }: { id: string }) {
                           prompt,
                           presentation,
                           scene,
+                          view,
                         },
                         job && terminal(job) ? job.job_id : undefined,
                       );

@@ -2,14 +2,14 @@
 
 A local Next.js + FastAPI prototype with two connected workflows:
 
-Collections now separate **Women, Men and Unisex**, with sarees, suits/sets, shirts, tops/T-shirts, trousers/jeans, skirts, dresses, kurtas, jackets/blazers and lehengas. Merchants set the collection/category and choose adult model presentation and studio/daylight/outdoor settings. Shoppers can combine up to three complementary garments: a top, bottom and jacket, or a full outfit and jacket. Conflicting layers are rejected by the server.
+Collections now separate **Women, Men and Unisex**, with sarees, suits/sets, shirts, tops/T-shirts, trousers/jeans, skirts, dresses, kurtas, jackets/blazers and lehengas. Merchants set the collection/category and choose adult model presentation and studio/daylight/outdoor settings. Shoes, watches and furniture are also available as categories. A selected product opens its own styling page, with no garment switcher. The API retains up to three complementary clothing pieces for existing callers; the shopper page previews one product.
 
-**Personal try-on now uses the dedicated FASHN VTON 1.5 model through its official public GPU demo.** Choose a garment, consent and upload a photo: generation starts automatically. Original and result appear together with direct download. Two live uploads of different fictional adult people completed and were visually inspected. See [evaluation evidence](docs/IDENTITY_EVALUATION.md). The shared demo has quota/capacity limits; production reliability and representative real-person accuracy remain unverified.
+**Personal try-on uses the dedicated FASHN VTON 1.5 model through its official public GPU demo.** Choose a product, consent and upload a photo: generation starts automatically. Original and result appear together with direct download. Two earlier live uploads completed; the latest live attempt returned a service error without an image. See [evaluation evidence](docs/IDENTITY_EVALUATION.md). The shared demo has quota/capacity limits; production reliability and representative real-person accuracy remain unverified. A paid FASHN adapter is available but requires its own key.
 
 - **Merchant studio:** upload garment photos or a PDF catalog, select garment regions, enter product details, generate model-wearing catalog previews, review and publish.
 - **Shopper storefront:** browse published garments, choose one, upload a personal photo with consent, generate a private try-on, compare, download, retry and delete.
 
-The storefront follows the supplied Panna reference: portrait catalog grid, compact white header, gold actions and a chat drawer. Merchant preparation follows Details → Images → Generate → Review & publish.
+The storefront follows the supplied Panna reference: portrait catalog grid, compact white header, gold actions and a portrait product gallery. Styling opens at `/style/{product_id}`. Merchant preparation follows Details → Images → Generate → Review & publish.
 
 **Catalog generation supports Cloudflare Workers AI, Gemini and paid FASHN.** Personal generation is independently configured with `VYUMI_TRYON_PROVIDER=fashn_demo` (official public GPU demo, no API key), `fashn` (paid key required), or `primary` (use the catalog provider). Catalog credentials take precedence Cloudflare, then Gemini, then paid FASHN. Demo mode returns a labelled fixed sample, not a personalized result.
 
@@ -72,7 +72,7 @@ Photos: JPEG/PNG/WebP/HEIC/HEIF/AVIF, at most 10 MiB and 25 megapixels. Personal
 
 PDFs: at most 30 MiB and 50 pages. Encrypted/unreadable PDFs are rejected. Preview pages, crop one garment or use the whole page, then manually confirm product metadata. Numeric crop controls support keyboard use. Source PDF/page/crop provenance stays attached. There is no automatic bulk matching, OCR or spreadsheet import.
 
-Personal photos need adult/processing consent and one detectable person or face. MediaPipe runs locally; lighting and framing issues become advice when one person is detected. Group/non-person images and missing validators are rejected. Checks are heuristics, not age verification. Height and size entry is removed from the upload flow; the preview does not measure physical fit.
+Personal photos need permission/processing consent and one detectable person or face. MediaPipe runs locally; lighting and framing issues become advice when one person is detected. Group/non-person images and missing validators are rejected. Checks are heuristics, not age verification. Optional height, weight, shoulder width and usual size are saved as user-supplied reference data. The photo supplies the silhouette; these values do not calibrate fit or guarantee body-shape preservation.
 
 Catalog images need explicit review before publication. Original references start private and appear publicly only if separately selected. Source changes create a new draft while preserving the previous public snapshot; replacement outputs need fresh approval. Personal results are session-private and downloadable before expiry. Job status reflects actual server state.
 
@@ -107,4 +107,14 @@ If generation is disabled, check the backend key/allowance and restart live mode
 
 AI may change color, embroidery, borders, drape, identity or anatomy. Merchant review is mandatory; a representative saree/suit benchmark is still needed before real customer use. Use consented adult photos and licensed garment sources. No measured fidelity or physical fit accuracy is claimed.
 
-Collections support Women, Men and Unisex, with ten garment categories. Personal outfits allow up to three complementary pieces (top, bottom and optional jacket; or full outfit and optional jacket). Merchant catalog shoots offer model presentation and scene controls. Personal upload starts generation automatically. Optional outfit controls are collapsed; direct download follows completion. Compare the face and garment before using a result.
+Collections support Women, Men and Unisex, with ten garment categories. Personal outfits allow up to three complementary pieces (top, bottom and optional jacket; or full outfit and optional jacket). Merchant catalog shoots offer model presentation and scene controls. Personal upload starts generation automatically. Front/back/left/right views have separate photo uploads, jobs and reload recovery; direct download follows completion. Compare the face and garment before using a result.
+
+## Product views and accessories
+
+The styling page asks for a sharp, unfiltered full-body photo with the neck, shoulders, waist and feet visible. It includes an illustrated height/width guide and optional measurements. A matching side/back photo is needed for each requested angle; the app does not infer a real back view, height or weight from a front image. The model may still alter proportions. Side/back quality is experimental and needs evaluation with representative consented photos.
+
+Merchant generation supports front, back, left and right camera directions with separate reviewable jobs. Add reverse/left/right original references for accurate product details. Hidden originals remain private inside the immutable publication snapshot and are never returned as public files. Later catalog views can use an approved catalog image as a model-identity reference on Cloudflare/Gemini; identity consistency remains model-dependent.
+
+Shoes and watches use the primary reference-image editor, preserving existing clothing and changing the accessory only. Furniture asks for a room photo and uses room placement prompts; a room upload cannot bypass person validation for clothing. Cloudflare/Gemini must be configured for these categories. These flows are approximate visualizations, not measured sizing or room-scale guarantees.
+
+The official public FASHN demo has shared capacity. A working health endpoint is not proof of GPU quota; capacity and inference errors have distinct messages, and there is no automatic provider fallback. For a dedicated hosted service, set `VYUMI_TRYON_PROVIDER=fashn` and a paid `VYUMI_FASHN_API_KEY`, then restart. Claude cannot generate photographic images, and its chat subscription does not include API usage: https://support.claude.com/en/articles/9002504-can-claude-produce-images and https://support.claude.com/en/articles/9876003-why-is-claude-api-usage-billed-separately-from-my-paid-claude-plan.

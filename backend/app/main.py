@@ -26,6 +26,7 @@ from .schemas import (
     CatalogGenerate,
     CropInput,
     GarmentCategory,
+    ImageRole,
     MerchantLogin,
     ProductEdit,
     ProductInput,
@@ -33,6 +34,7 @@ from .schemas import (
     ReviewInput,
     TryOnGenerate,
     VersionInput,
+    View,
 )
 from .security import COOKIE, current_session, fail, merchant, new_session
 
@@ -252,7 +254,7 @@ def create_app(settings=None):
         elif (
             public_snapshot
             and public_snapshot["version"] == product["version"]
-            and {image["id"] for image in public_snapshot["images"]}
+            and {image["id"] for image in public_snapshot["images"] if image["public"]}
             == {image["id"] for image in product["images"] if image["public"]}
         ):
             result["status"] = "Published"
@@ -291,7 +293,7 @@ def create_app(settings=None):
         product_id: str,
         request: Request,
         file: UploadFile,
-        role: Annotated[Literal["main", "reverse", "detail"], Form()] = "main",
+        role: Annotated[ImageRole, Form()] = "main",
     ):
         session = merchant(request)
         with database.connect() as db:
@@ -462,12 +464,20 @@ def create_app(settings=None):
         consent: Annotated[str, Form()] = "false",
         height_cm: Annotated[float | None, Form()] = None,
         usual_size: Annotated[str, Form(max_length=80)] = "",
+        weight_kg: Annotated[
+            float | None, Form(ge=20, le=400, allow_inf_nan=False)
+        ] = None,
+        body_width_cm: Annotated[
+            float | None, Form(ge=10, le=150, allow_inf_nan=False)
+        ] = None,
+        view: Annotated[View, Form()] = "front",
+        purpose: Annotated[Literal["person", "room"], Form()] = "person",
     ):
         session = current_session(request)
         if consent != "true":
             fail(
                 "consent_required",
-                "Confirm you are an adult and have permission to process this photo.",
+                "Confirm you have permission and agree to photo processing.",
             )
         if height_cm is not None and not 80 <= height_cm <= 250:
             fail(
@@ -488,6 +498,12 @@ def create_app(settings=None):
                 "code": "fixture_only",
                 "message": "Demo upload only. Person validation and real personalized generation are not being demonstrated.",
             }
+        elif purpose == "room":
+            checks = {
+                "accepted": True,
+                "code": "room_uploaded",
+                "message": "Room photo uploaded. Furniture placement is an approximate visualization.",
+            }
         else:
             checks = await run_in_threadpool(check_person, image)
         if not checks["accepted"]:
@@ -499,7 +515,19 @@ def create_app(settings=None):
             session["id"],
             "personal",
             expires=expires,
-            source={"accepted": True, "consent": True, "fixture": settings.fixture},
+            source={
+                "accepted": True,
+                "consent": True,
+                "fixture": settings.fixture,
+                "view": view,
+                "purpose": purpose,
+                "measurements": {
+                    "height_cm": height_cm,
+                    "weight_kg": weight_kg,
+                    "body_width_cm": body_width_cm,
+                    "usual_size": usual_size,
+                },
+            },
         )
         return {
             "id": asset_id,

@@ -1981,6 +1981,150 @@ dialog.tryon-drawer::backdrop {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.style-main {
+  max-width: 1240px;
+  margin: auto;
+  padding: 28px 32px 72px;
+}
+.style-heading {
+  margin: 32px 0;
+}
+.style-heading h1 {
+  font-size: clamp(30px, 4vw, 44px);
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+.style-heading p,
+.view-guidance {
+  color: var(--muted);
+}
+.style-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.6fr);
+  gap: 64px;
+  align-items: start;
+}
+.style-product {
+  position: sticky;
+  top: 122px;
+}
+.style-product > img {
+  width: 100%;
+  max-height: 530px;
+  object-fit: contain;
+  background: var(--canvas);
+}
+.style-product h2 {
+  font-size: 22px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.style-product p {
+  font-size: 14px;
+}
+.view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  gap: 4px;
+}
+.view-tabs button {
+  flex: 1;
+  min-height: 46px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 10px 12px;
+}
+.view-tabs .active {
+  border-bottom-color: var(--gold);
+  color: var(--gold);
+}
+.view-guidance {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 16px 0 28px;
+}
+.photo-guide {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 24px;
+  align-items: center;
+  padding-bottom: 24px;
+}
+.photo-guide svg {
+  width: 120px;
+  color: var(--forest);
+  background: var(--canvas);
+}
+.photo-guide h3 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 500;
+}
+.photo-guide p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.measurement-details {
+  border-block: 1px solid var(--line);
+  padding: 16px 0;
+  margin-bottom: 22px;
+}
+.measurement-details summary {
+  cursor: pointer;
+}
+.measurement-details p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.style-form .check-row {
+  margin: 22px 0;
+}
+.style-form .upload-panel {
+  width: 100%;
+}
+.style-form .comparison img {
+  object-fit: contain;
+}
+@media (max-width: 700px) {
+  .style-main {
+    padding: 20px 20px 48px;
+  }
+  .style-workspace {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .style-product {
+    position: static;
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    column-gap: 18px;
+  }
+  .style-product > img {
+    grid-row: span 4;
+    max-height: 135px;
+  }
+  .style-product h2 {
+    font-size: 19px;
+    margin-top: 0;
+  }
+  .style-product p {
+    margin: 0 0 8px;
+  }
+  .photo-guide {
+    grid-template-columns: 85px 1fr;
+    gap: 16px;
+  }
+  .photo-guide svg {
+    width: 85px;
+  }
+  .view-tabs button {
+    padding-inline: 8px;
+  }
+}
 @media (max-width: 700px) {
   .collection-intro {
     padding-top: 22px;

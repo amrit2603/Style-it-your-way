@@ -11,7 +11,7 @@ test("collection, category filtering and detail gallery", async ({ page }) => {
   await expect(page.locator(".product-card")).toHaveCount(2);
   await page.locator(".product-photo").first().click();
   await expect(
-    page.getByRole("button", { name: "Try it on me", exact: true }),
+    page.getByRole("link", { name: "Try it on me", exact: true }),
   ).toBeVisible({ timeout: 15000 });
   await expect(page.locator(".thumbnails button")).toHaveCount(2);
   await page.locator(".thumbnails button").last().click();
@@ -23,7 +23,7 @@ test("shopper photo consent, fixture result, reload and delete", async ({
 }) => {
   await page.goto("/");
   await page.locator(".product-card").first().getByRole("button").click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.locator(".style-form");
   await expect(
     dialog.getByRole("button", { name: "Upload photo & try on" }),
   ).toBeDisabled();
@@ -44,10 +44,7 @@ test("shopper photo consent, fixture result, reload and delete", async ({
     .getAttribute("src");
   expect(resultSrc).toContain("/api/assets/");
   await page.reload();
-  await expect(page.locator(".product-card")).toHaveCount(4);
-  await page
-    .getByRole("button", { name: "Style it your way", exact: true })
-    .click();
+  await expect(page.locator(".style-form")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Demonstration result" }),
   ).toBeVisible();
@@ -132,10 +129,20 @@ test("merchant uploads, generates, approves and publishes", async ({
       await route.abort("failed");
     } else await route.fulfill({ response });
   });
+  await page.getByLabel("Camera view", { exact: true }).selectOption("left");
   await page
     .getByRole("button", { name: "Generate catalog preview", exact: true })
     .click();
   await expect(page.getByRole("alert")).toBeVisible();
+  await expect.poll(async () => (await (await page.request.get(`/api/style-it/jobs/${jobs[0]}`)).json()).status).toBe("completed");
+  await page.reload();
+  await page
+    .locator(".editor-steps")
+    .getByRole("button", { name: "3 Generate", exact: true })
+    .click();
+  await expect(page.getByLabel("Camera view", { exact: true })).toHaveValue(
+    "left",
+  );
   await page
     .getByRole("button", { name: "Generate catalog preview", exact: true })
     .click();
@@ -181,13 +188,13 @@ test("desktop and mobile render without horizontal overflow", async ({
     ),
   ).toBeTruthy();
   await page.locator(".product-card").first().getByRole("button").click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.locator(".style-form")).toBeVisible();
   await page.screenshot({
     path: path.join(folder, "mobile-tryon.png"),
     fullPage: true,
   });
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("link", { name: "Back to product" }).click();
+  await expect(page.locator(".style-form")).toHaveCount(0);
 });
 
 test("merchant imports a PDF garment region with accessible crop controls", async ({
@@ -240,26 +247,19 @@ test("merchant imports a PDF garment region with accessible crop controls", asyn
   });
 });
 
-test("lost shopper response reuses the existing job and keyboard stays in modal", async ({
+test("lost shopper response reuses the existing job on the product styling page", async ({
   page,
 }) => {
   await page.goto("/");
   await page.locator(".product-card").first().getByRole("button").click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.locator(".style-form");
   await expect(dialog).toBeVisible();
-  for (let i = 0; i < 12; i++) {
-    await page.keyboard.press(i % 2 ? "Tab" : "Shift+Tab");
-    expect(
-      await page.evaluate(() =>
-        document.querySelector("dialog")?.contains(document.activeElement),
-      ),
-    ).toBeTruthy();
-  }
+  await expect(page.getByLabel("Choose a garment")).toHaveCount(0);
   await dialog.getByRole("checkbox").check();
   let dropped = false;
   const keys: string[] = [],
     jobs: string[] = [];
-  await page.route("**/api/style-it/generate", async (route) => {
+  await page.route("**/api/style-it/generate?**", async (route) => {
     keys.push(route.request().postDataJSON().idempotency_key);
     const response = await route.fetch();
     jobs.push((await response.json()).job_id);
@@ -291,11 +291,11 @@ test("shopper recovers an existing request after reload with no remaining allowa
 }) => {
   await page.goto("/");
   await page.locator(".product-card").first().getByRole("button").click();
-  let dialog = page.getByRole("dialog");
+  let dialog = page.locator(".style-form");
   await dialog.getByRole("checkbox").check();
   let first = true;
   const ids: string[] = [];
-  await page.route("**/api/style-it/generate", async (route) => {
+  await page.route("**/api/style-it/generate?**", async (route) => {
     const response = await route.fetch();
     ids.push((await response.json()).job_id);
     if (first) {
@@ -318,11 +318,8 @@ test("shopper recovers an existing request after reload with no remaining allowa
     });
   });
   await page.reload();
-  await page.locator(".product-card").first().waitFor();
-  await page
-    .getByRole("button", { name: "Style it your way", exact: true })
-    .click();
-  dialog = page.getByRole("dialog");
+  await expect(page.locator(".style-form")).toBeVisible();
+  dialog = page.locator(".style-form");
   await expect(
     dialog.getByRole("button", { name: "Resume my request", exact: true }),
   ).toBeEnabled();
@@ -335,7 +332,7 @@ test("shopper recovers an existing request after reload with no remaining allowa
   expect(ids[0]).toBe(ids[1]);
 });
 
-test("men and women collections, garment types and outfit builder", async ({
+test("collections, accessory categories and four independent product views", async ({
   page,
   request,
 }) => {
@@ -346,8 +343,8 @@ test("men and women collections, garment types and outfit builder", async ({
   const pieces: string[] = [];
   for (const [category, name] of [
     ["shirt", "Navy shirt test"],
-    ["trousers", "Tailored trousers test"],
-    ["jacket", "Everyday jacket test"],
+    ["watch", "Everyday watch test"],
+    ["furniture", "Reading chair test"],
   ]) {
     let response = await request.post("/api/merchant/products", {
       headers,
@@ -424,19 +421,17 @@ test("men and women collections, garment types and outfit builder", async ({
     fullPage: true,
   });
   await page.locator(".product-card button").click();
-  const dialog = page.getByRole("dialog");
-  await dialog
-    .getByText("Change garment or add outfit pieces", { exact: true })
+  const dialog = page.locator(".style-form");
+  await expect(page.getByLabel("Choose a garment")).toHaveCount(0);
+  await expect(page.getByLabel("Add another piece")).toHaveCount(0);
+  await page
+    .getByText("Add your measurements (optional)", { exact: true })
     .click();
-  await dialog
-    .getByLabel("Add another piece", { exact: true })
-    .selectOption(pieces[1]);
-  await dialog
-    .getByLabel("Add another piece", { exact: true })
-    .selectOption(pieces[2]);
-  await expect(dialog.locator(".outfit-piece")).toHaveCount(2);
+  await page.getByLabel("Height (cm)", { exact: true }).fill("165");
+  await page.getByLabel("Weight (kg)", { exact: true }).fill("90");
+  await page.getByLabel("Shoulder width (cm)", { exact: true }).fill("46");
   const submission = page.waitForRequest(
-    (r) => r.url().endsWith("/api/style-it/generate") && r.method() === "POST",
+    (r) => r.url().includes("/api/style-it/generate?") && r.method() === "POST",
   );
   await dialog.getByRole("checkbox").check();
   await dialog
@@ -445,14 +440,78 @@ test("men and women collections, garment types and outfit builder", async ({
   await expect(
     dialog.getByText("Your photo is ready", { exact: true }),
   ).toBeVisible();
-  expect((await submission).postDataJSON().additional_product_ids).toEqual([
-    pieces[1],
-    pieces[2],
-  ]);
+  expect((await submission).postDataJSON().product_id).toBe(pieces[0]);
   await expect(
     dialog.getByRole("heading", { name: "Demonstration result" }),
   ).toBeVisible();
   await page.screenshot({
-    path: path.join(root, ".impeccable/review/outfit-builder.png"),
+    path: path.join(root, ".impeccable/review/product-style-front.png"),
   });
+});
+
+test("independent side photos, measurements and reload", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".product-card").first().getByRole("button").click();
+  await page.getByRole("button", { name: "Left side", exact: true }).click();
+  await page.getByRole("checkbox").check();
+  const upload = page.waitForRequest(
+    (r) => r.url().includes("/style-it/photos") && r.method() === "POST",
+  );
+  const generation = page.waitForRequest(
+    (r) => r.url().includes("/style-it/generate?") && r.method() === "POST",
+  );
+  await page
+    .getByLabel("Upload your photo", { exact: true })
+    .setInputFiles(garment);
+  await upload;
+  expect((await generation).postDataJSON().view).toBe("left");
+  await expect(
+    page.getByRole("heading", { name: "Demonstration result" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Front", exact: true }).click();
+  await expect(page.getByRole("checkbox")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Demonstration result" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Left side", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Demonstration result" }),
+  ).toBeVisible();
+  await page.reload();
+  // Front is the default on reload; the independent left-side request remains saved.
+  await page.getByRole("button", { name: "Left side", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Demonstration result" }),
+  ).toBeVisible();
+});
+
+test("furniture asks for a room and retains product selection", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page
+    .getByLabel("Garment type", { exact: true })
+    .selectOption("furniture");
+  await expect(page.locator(".product-card")).toHaveCount(1);
+  await page.locator(".product-card").getByRole("button").click();
+  await expect(
+    page.getByRole("heading", { name: "See it in your space." }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Show the space, not a close-up", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Add your measurements (optional)", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("checkbox").check();
+  const upload = page.waitForRequest(
+    (r) => r.url().includes("/style-it/photos") && r.method() === "POST",
+  );
+  await page
+    .getByLabel("Upload your photo", { exact: true })
+    .setInputFiles(garment);
+  await upload;
+  await expect(
+    page.getByRole("heading", { name: "Demonstration result" }),
+  ).toBeVisible();
 });

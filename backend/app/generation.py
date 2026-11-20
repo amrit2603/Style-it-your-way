@@ -27,6 +27,12 @@ from .provider import (
 from .security import fail
 
 TERMINAL = {"completed", "failed", "cancelled", "expired", "needs_review"}
+CATALOG_VIEWS = {
+    "front": "Straight-on full-body front view, facing the camera, both shoulders visible.",
+    "back": "Full-body rear view: rotate the entire model 180 degrees away from the camera. Show the back of the head, shoulders and garment. The face must not be visible.",
+    "left": "Strict 90-degree left-side profile, full body facing the left edge of the image. Show only one eye and one shoulder in profile, with shoulders and hips rotated sideways. Do not use a frontal or three-quarter pose.",
+    "right": "Strict 90-degree right-side profile, full body facing the right edge of the image. Show only one eye and one shoulder in profile, with shoulders and hips rotated sideways. Do not use a frontal or three-quarter pose.",
+}
 
 
 def job_response(job):
@@ -35,6 +41,7 @@ def job_response(job):
         "operation": job["operation"],
         "status": job["status"],
         "fixture": bool(job["fixture"]),
+        "view": json.loads(job["context"]).get("view", "front"),
     }
     for field in ("expires", "error_code", "message"):
         if job[field] is not None:
@@ -71,10 +78,12 @@ class GenerationService:
             else None
         )
 
-    def provider_for(self, operation):
+    def provider_for(self, operation, category=None):
         return (
             self.dedicated
-            if operation == "tryon" and self.dedicated is not None
+            if operation == "tryon"
+            and self.dedicated is not None
+            and category not in {"shoes", "watch", "furniture"}
             else self.provider
         )
 
@@ -119,10 +128,17 @@ class GenerationService:
                     "Please wait a minute before requesting another image.",
                     429,
                 )
+            product_id = payload.product_id if operation == "tryon" else product_id
+            product = load_product(db, product_id, public=operation == "tryon")
+            uses_primary = operation == "catalog" or product["category"] in {
+                "shoes",
+                "watch",
+                "furniture",
+            }
             if not self.settings.fixture and (
                 not (
                     self.settings.tryon_configured
-                    if operation == "tryon"
+                    if not uses_primary
                     else self.settings.provider_configured
                 )
                 or self.settings.generation_allowance < 1
@@ -132,24 +148,44 @@ class GenerationService:
                     "Image generation is not configured. Set backend provider credentials and a positive generation allowance.",
                     503,
                 )
-            product_id = payload.product_id if operation == "tryon" else product_id
-            product = load_product(db, product_id, public=operation == "tryon")
             if operation == "catalog":
                 check_version(product, payload.version)
+            if (
+                product["category"] in {"shoes", "watch", "furniture"}
+                and not self.settings.fixture
+                and not isinstance(self.provider, (CloudflareClient, GeminiClient))
+            ):
+                fail(
+                    "category_provider_required",
+                    "Shoes, watches and furniture need a configured reference-image editing provider.",
+                )
+            reference = next(
+                (
+                    image["id"]
+                    for image in product["images"]
+                    if image["kind"] == "original"
+                    and image["role"]
+                    == {"back": "reverse", "left": "left", "right": "right"}.get(
+                        payload.view
+                    )
+                ),
+                product["reference_id"],
+            )
             if not product["reference_id"]:
                 fail(
                     "reference_required",
                     "Confirm the original garment reference before generating.",
                 )
-            get_asset(db, product["reference_id"])
+            get_asset(db, reference)
             context = {
                 "provider": self.settings.tryon_name
-                if operation == "tryon"
+                if not uses_primary
                 else self.settings.provider_name,
+                "view": payload.view,
                 "garments": [
                     {
                         "product_id": product_id,
-                        "reference_id": product["reference_id"],
+                        "reference_id": reference,
                         "category": product["category"],
                         "version": product["version"],
                     }
@@ -157,14 +193,33 @@ class GenerationService:
             }
             if operation == "catalog":
                 context.update(presentation=payload.presentation, scene=payload.scene)
+                anchor = next(
+                    (
+                        image["id"]
+                        for image in product["images"]
+                        if image["kind"] == "generated" and image["approved"]
+                    ),
+                    None,
+                )
+                if (
+                    anchor
+                    and isinstance(self.provider, (CloudflareClient, GeminiClient))
+                    and product["category"] not in {"shoes", "watch", "furniture"}
+                ):
+                    context["catalog_anchor_id"] = anchor
             else:
                 ids = [product_id, *payload.additional_product_ids]
+                if (
+                    product["category"] in {"shoes", "watch", "furniture"}
+                    and payload.additional_product_ids
+                ):
+                    fail("outfit_conflict", "Preview this product on its own.")
                 if len(ids) != len(set(ids)):
                     fail("duplicate_garment", "Choose each garment only once.")
                 if payload.additional_product_ids and not (
                     self.settings.fixture
                     or isinstance(
-                        self.provider_for(operation),
+                        self.provider_for(operation, product["category"]),
                         (CloudflareClient, GeminiClient, FashnDemoClient),
                     )
                 ):
@@ -174,6 +229,11 @@ class GenerationService:
                     )
                 for extra_id in payload.additional_product_ids:
                     extra = load_product(db, extra_id, public=True)
+                    if extra["category"] in {"shoes", "watch", "furniture"}:
+                        fail(
+                            "outfit_conflict",
+                            "Preview accessories and furniture on their own product page.",
+                        )
                     if not extra["reference_id"]:
                         fail(
                             "reference_required",
@@ -226,6 +286,18 @@ class GenerationService:
                         "photo_recheck_required",
                         "Upload this photo again in live mode so the real photo checks can run.",
                     )
+                if metadata.get("view", "front") != payload.view:
+                    fail(
+                        "photo_view_mismatch", "Upload a matching photo for this view."
+                    )
+                if (metadata.get("purpose", "person") == "room") != (
+                    product["category"] == "furniture"
+                ):
+                    fail(
+                        "photo_purpose_mismatch",
+                        "Upload a room photo for furniture, or a personal photo for wearable products.",
+                    )
+                context["measurements"] = metadata.get("measurements", {})
                 expires = photo["expires"]
             if not self.settings.fixture:
                 used = db.execute(
@@ -246,7 +318,7 @@ class GenerationService:
                 "operation": operation,
                 "product_id": product_id,
                 "version": product["version"],
-                "reference_id": product["reference_id"],
+                "reference_id": reference,
                 "photo_id": photo_id,
                 "prompt": getattr(payload, "prompt", ""),
                 "request_key": payload.idempotency_key,
@@ -396,7 +468,14 @@ class GenerationService:
                 )
                 return
             try:
-                provider = self.provider_for(job["operation"])
+                context = json.loads(job["context"])
+                category = context.get("garments", [{}])[0].get("category")
+                uses_primary = job["operation"] == "catalog" or category in {
+                    "shoes",
+                    "watch",
+                    "furniture",
+                }
+                provider = self.provider_for(job["operation"], category)
                 if job["fixture"]:
                     if job["status"] == "queued":
                         with self.db.connect(write=True) as db:
@@ -411,7 +490,7 @@ class GenerationService:
                     context = json.loads(job["context"])
                     if context.get("provider", self.settings.provider_name) != (
                         self.settings.tryon_name
-                        if job["operation"] == "tryon"
+                        if not uses_primary
                         else self.settings.provider_name
                     ):
                         raise ProviderError(
@@ -434,6 +513,13 @@ class GenerationService:
                             ).read_bytes()
                             for g in context.get("garments", [])[1:]
                         ]
+                        anchor_data = (
+                            asset_path(
+                                self.db, get_asset(db, context["catalog_anchor_id"])
+                            ).read_bytes()
+                            if context.get("catalog_anchor_id")
+                            else None
+                        )
                     inputs = {
                         "product_image": self._data_uri(garment_data),
                         "resolution": "1k",
@@ -441,8 +527,16 @@ class GenerationService:
                         "num_images": 1,
                         "return_base64": True,
                         "output_format": "jpeg",
+                        "category": category,
                     }
                     if job["operation"] == "tryon":
+                        inputs["prompt"] = (
+                            f"Keep the uploaded {context.get('view', 'front')} view and exact body shape, including neck fullness, shoulders, arms, waist and hips. Never slim or reshape the person. User-supplied measurements (reference only, not a fit guarantee): {json.dumps(context.get('measurements', {}))}."
+                        )
+                        if category == "furniture":
+                            inputs["prompt"] = (
+                                f"Keep the uploaded {context.get('view', 'front')} camera view and room geometry. Preserve the furniture's actual design."
+                            )
                         inputs["model_image"] = self._data_uri(person_data)
                         inputs["garment_categories"] = [
                             g["category"] for g in context.get("garments", [])
@@ -452,13 +546,24 @@ class GenerationService:
                                 self._data_uri(data) for data in extra_data
                             ]
                     else:
+                        view = context.get("view", "front")
+                        direction = CATALOG_VIEWS[view]
+                        subject = f"An adult {context.get('presentation', 'women')} fashion model with a natural, individual face, realistic skin texture and body proportions."
+                        if category in {"shoes", "watch", "furniture"}:
+                            direction = f"Full product {view} view. Show the {view} side of the object clearly, rotating the object to the requested angle."
+                            subject = f"The exact {category} product, with no people or clothing model."
                         inputs.update(
                             {
-                                "prompt": f"An adult {context.get('presentation', 'women')} fashion model with a natural, individual face, realistic skin texture and body proportions. Scene: {context.get('scene', 'studio')}. Preserve the exact garment and avoid beauty filters or plastic skin. "
+                                "prompt": f"Required camera composition: {direction} {subject} Scene: {context.get('scene', 'studio')}. Preserve the exact product and avoid beauty filters or plastic skin. "
                                 + job["prompt"],
                                 "aspect_ratio": "2:3",
                             }
                         )
+                        if anchor_data:
+                            inputs["additional_images"] = [self._data_uri(anchor_data)]
+                            inputs["prompt"] += (
+                                " The second reference supplies model identity ONLY. Keep the same adult's face, hair and body shape, but do NOT copy its pose or camera angle. Rotate the entire body to the required camera composition. The first reference remains the product detail source."
+                            )
                     if isinstance(
                         provider, (GeminiClient, CloudflareClient, FashnDemoClient)
                     ):
@@ -584,7 +689,12 @@ class GenerationService:
                         {
                             "id": asset_id,
                             "kind": "generated",
-                            "role": "main",
+                            "role": {
+                                "front": "main",
+                                "back": "reverse",
+                                "left": "left",
+                                "right": "right",
+                            }.get(json.loads(job["context"]).get("view"), "main"),
                             "approved": False,
                             "public": True,
                         }

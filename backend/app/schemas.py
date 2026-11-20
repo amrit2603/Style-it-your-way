@@ -13,7 +13,12 @@ GarmentCategory = Literal[
     "kurta",
     "jacket",
     "lehenga",
+    "shoes",
+    "watch",
+    "furniture",
 ]
+View = Literal["front", "back", "left", "right"]
+ImageRole = Literal["main", "reverse", "detail", "left", "right"]
 
 
 class ProductInput(BaseModel):
@@ -73,10 +78,11 @@ class CropInput(BaseModel):
     y: float = Field(ge=0, le=1, allow_inf_nan=False)
     width: float = Field(gt=0, le=1, allow_inf_nan=False)
     height: float = Field(gt=0, le=1, allow_inf_nan=False)
-    role: Literal["main", "reverse", "detail"] = "main"
+    role: ImageRole = "main"
 
 
 class CatalogGenerate(VersionInput):
+    view: View = "front"
     presentation: Literal["women", "men", "unisex"] = "women"
     scene: Literal["studio", "daylight", "outdoor"] = "studio"
     prompt: str = Field(default="", max_length=1000)
@@ -84,6 +90,7 @@ class CatalogGenerate(VersionInput):
 
 
 class TryOnGenerate(BaseModel):
+    view: View = "front"
     user_image_id: str
     product_id: str
     additional_product_ids: list[str] = Field(default_factory=list, max_length=2)

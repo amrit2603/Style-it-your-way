@@ -21,7 +21,10 @@ export type Product = {
     | "dress"
     | "kurta"
     | "jacket"
-    | "lehenga";
+    | "lehenga"
+    | "shoes"
+    | "watch"
+    | "furniture";
   audience?: "women" | "men" | "unisex";
   description: string;
   price_minor: number | null;
@@ -35,6 +38,7 @@ export type Product = {
   latest_job?: Job | null;
 };
 export type Job = {
+  view?: string;
   job_id: string;
   operation: string;
   status: string;

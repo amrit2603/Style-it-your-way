@@ -163,3 +163,66 @@ def test_personal_and_catalog_readiness_are_independent(tmp_path):
     assert health["provider_ready"] is True
     assert health["catalog_ready"] is False
     assert health["provider"] == "FASHN demo"
+
+
+def test_photo_view_and_measurements_are_saved(fixture_client, fixture_app):
+    headers = session(fixture_client)
+    response = fixture_client.post(
+        "/style-it/photos",
+        headers=headers,
+        files={"file": ("back.png", photo())},
+        data={
+            "consent": "true",
+            "view": "back",
+            "height_cm": "165",
+            "weight_kg": "90",
+            "body_width_cm": "46",
+            "usual_size": "XL",
+        },
+    )
+    assert response.status_code == 200, response.text
+    with fixture_app.state.db.connect() as db:
+        saved = json.loads(
+            db.execute(
+                "SELECT source FROM assets WHERE id=?", (response.json()["id"],)
+            ).fetchone()[0]
+        )
+    assert saved["view"] == "back" and saved["measurements"]["weight_kg"] == 90
+    invalid = fixture_client.post(
+        "/style-it/photos",
+        headers=headers,
+        files={"file": ("person.png", photo())},
+        data={"consent": "true", "weight_kg": "-4"},
+    )
+    assert invalid.status_code == 422
+
+
+def test_free_demo_reports_http_quota_as_retryable_not_uncertain(monkeypatch):
+    transport(
+        monkeypatch,
+        lambda request: httpx.Response(429, json={"error": "Quota exceeded"}),
+    )
+    with pytest.raises(ProviderError) as caught:
+        FashnDemoClient().generate(
+            {"model_image": uri(photo()), "product_image": uri(photo())}
+        )
+    assert caught.value.code == "tryon_busy" and not caught.value.ambiguous
+
+
+def test_unknown_demo_error_does_not_blame_the_customer_photo(monkeypatch):
+    def handle(request):
+        if request.url.path.endswith("/upload"):
+            return httpx.Response(
+                200, json=["/tmp/gradio/person", "/tmp/gradio/garment"]
+            )
+        if request.method == "POST":
+            return httpx.Response(200, json={"event_id": "b" * 32})
+        return httpx.Response(200, text="event: error\ndata: null\n\n")
+
+    transport(monkeypatch, handle)
+    with pytest.raises(ProviderError) as caught:
+        FashnDemoClient().generate(
+            {"model_image": uri(photo()), "product_image": uri(photo())}
+        )
+    assert caught.value.code == "tryon_service_error"
+    assert not caught.value.ambiguous
