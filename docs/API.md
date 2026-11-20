@@ -13,7 +13,7 @@ Frontend calls `/api` on its own origin; Next rewrites to FastAPI. JSON errors: 
 
 ## Product shape
 
-`Product = {id,version,sku,name,category:'saree'|'suit',description,price_minor:number|null,currency,sizes:string,published:boolean,reference_id:string|null,images:Image[]}`.
+`Product = {id,version,sku,name,category,audience:'women'|'men'|'unisex',description,price_minor:number|null,currency,sizes:string,published:boolean,reference_id:string|null,images:Image[]}`.
 `Image = {id,url,kind:'original'|'generated',role:'main'|'reverse'|'detail',approved:boolean,public:boolean}`. No private reference ID is present in public Product responses. Public images contain only published gallery entries.
 
 - `GET /merchant/products` -> `Product[]`.
@@ -25,7 +25,7 @@ Frontend calls `/api` on its own origin; Next rewrites to FastAPI. JSON errors: 
 - `POST /merchant/products/{id}/images/{asset_id}/review` `{approved:boolean,public:boolean,version}` -> Product; originals can have visibility selected, generated approval applies to exact asset/revision.
 - `POST /merchant/products/{id}/publish` `{version}` -> Product; requires confirmed original reference and approved generated gallery image.
 - `POST /merchant/products/{id}/unpublish` empty JSON -> Product.
-- `GET /products` -> published Product[]. Optional `?category=saree|suit` filters.
+- `GET /products` -> published Product[]. Optional `category` and `audience` filters. Men/women include unisex garments. Categories: saree, suit, shirt, top, trousers, skirt, dress, kurta, jacket and lehenga.
 - `GET /products/{id}` -> published Product, 404 for draft/unpublished.
 
 Merchant GET product/list responses additionally include `status: Draft|Generating|Needs review|Published` and the current revision's `latest_job: Job|null`, so the studio can resume work after navigation or refresh. Personal jobs are never included in merchant catalog responses.
@@ -38,9 +38,9 @@ Merchant GET product/list responses additionally include `status: Draft|Generati
 
 ## Jobs and personal photos
 
-- `POST /merchant/products/{id}/generate` `{version,prompt?,idempotency_key}` -> Job.
+- `POST /merchant/products/{id}/generate` `{version,prompt?,presentation?:'women'|'men'|'unisex',scene?:'studio'|'daylight'|'outdoor',idempotency_key}` -> Job.
 - `POST /style-it/photos` multipart `{file,consent:'true',height_cm?,usual_size?}` -> `{id,url,expires_at,checks:{accepted,code,message}}`. Requires adult/processing consent and actual validator acceptance in live mode. Fixtures explicitly labelled. Min short side 512, max 25MP, max 10MiB.
-- `POST /style-it/generate` `{user_image_id,product_id,idempotency_key}` -> Job. Uses immutable original reference from current published revision, not an AI-generated catalog image.
+- `POST /style-it/generate` `{user_image_id,product_id,additional_product_ids?:string[],idempotency_key}` -> Job. Uses immutable original reference from current published revision, not an AI-generated catalog image.
 - `GET /style-it/jobs/{id}` -> Job. Personal jobs are owner-only; merchant-role sessions may inspect catalog work in the one local merchant workspace.
 - `Job = {job_id,operation:'catalog'|'tryon',status:'queued'|'submitting'|'processing'|'completed'|'failed'|'expired'|'cancelled'|'needs_review',result_image_url?:string,error_code?:string,message?:string,fixture:boolean,expires_at?:number}`.
 - `GET /assets/{id}` -> private image/file, role/session authorization; `?download=true` sets download disposition.
@@ -50,3 +50,5 @@ Merchant GET product/list responses additionally include `status: Draft|Generati
 ## Development fixtures
 
 Fixture backend mode is opt-in and visibly flagged by health, jobs and output watermarks. It can seed a licensed/generated sample catalog for UI review, but no fixture output is presented as a real personalized result. Browser tests use an isolated database and explicit fake detector outputs. The default live backend never bypasses missing person checks or missing provider configuration.
+
+Outfits allow up to three distinct, compatible published garments. Jobs snapshot original asset references, provider, scene and presentation in the migrated context column. FASHN currently supports single garments only. Cloudflare personal try-on is experimental; see IDENTITY_EVALUATION.md.

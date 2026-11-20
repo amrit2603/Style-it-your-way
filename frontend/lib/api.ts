@@ -11,7 +11,18 @@ export type Product = {
   version: number;
   sku: string;
   name: string;
-  category: "saree" | "suit";
+  category:
+    | "saree"
+    | "suit"
+    | "shirt"
+    | "top"
+    | "trousers"
+    | "skirt"
+    | "dress"
+    | "kurta"
+    | "jacket"
+    | "lehenga";
+  audience?: "women" | "men" | "unisex";
   description: string;
   price_minor: number | null;
   currency: string;
@@ -125,7 +136,6 @@ export async function logout() {
   await api("/sessions/logout", "POST", {});
   session = undefined;
 }
-
 type SavedGeneration = {
   scope: string;
   payload: Record<string, unknown>;

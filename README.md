@@ -2,12 +2,16 @@
 
 A local Next.js + FastAPI prototype with two connected workflows:
 
+Collections now separate **Women, Men and Unisex**, with sarees, suits/sets, shirts, tops/T-shirts, trousers/jeans, skirts, dresses, kurtas, jackets/blazers and lehengas. Merchants set the collection/category and choose adult model presentation and studio/daylight/outdoor settings. Shoppers can combine up to three complementary garments: a top, bottom and jacket, or a full outfit and jacket. Conflicting layers are rejected by the server.
+
+**Personal try-on quality is experimental on Cloudflare.** Live tests produced distinct images but exposed face drift, layering errors and retention of the original outfit. The app shows original/result together, offers rejection, and requires face/garment confirmation before downloading live results. These controls are manual review, not automatic identity verification. See [live evaluation evidence](docs/IDENTITY_EVALUATION.md). Catalog shoots were successful; dependable real-person try-on still needs a dedicated provider and a representative benchmark.
+
 - **Merchant studio:** upload garment photos or a PDF catalog, select garment regions, enter product details, generate model-wearing catalog previews, review and publish.
 - **Shopper storefront:** browse published garments, choose one, upload a personal photo with consent, generate a private try-on, compare, download, retry and delete.
 
 The storefront follows the supplied Panna reference: portrait catalog grid, compact white header, gold actions and a chat drawer. Merchant preparation follows Details → Images → Generate → Review & publish.
 
-**Real generation supports Cloudflare Workers AI, Gemini and FASHN.** Cloudflare credentials take precedence, then Gemini, then FASHN. Partial Cloudflare credentials disable generation instead of silently sending photos to another provider. The Gemini key passed Google's model-list check, but the live image trial returned HTTP 429 (quota unavailable). No live generated output was obtained. Demo mode returns an explicitly labelled fixed sample; it does not generate a personalized result. Its sample garments are fictional.
+**Real generation supports Cloudflare Workers AI, Gemini and FASHN.** Cloudflare catalog shoots have completed live. Personal try-on remains experimental: live tests exposed face drift and failed clothing replacement; see [evaluation](docs/IDENTITY_EVALUATION.md). Cloudflare credentials take precedence, then Gemini, then FASHN; partial Cloudflare credentials disable generation. Demo mode returns a labelled fixed sample, not a personalized result.
 
 ## Run the local demonstration
 
@@ -34,12 +38,12 @@ VYUMI_CLOUDFLARE_ACCOUNT_ID=your_account_id
 VYUMI_CLOUDFLARE_API_TOKEN=your_workers_ai_token
 ```
 
-Never paste the token into chat or frontend code. A positive local generation allowance is also required. Restart the backend after saving. The adapter uses `@cf/black-forest-labs/flux-2-klein-4b`, sending the garment as image 0 and the person as image 1 where applicable. References are resized to at most 511 pixels per side to meet the provider's input limit; this can lose fine garment details. Outputs are requested at 768 × 1024. This is a general image-editing model, with no measured garment or identity accuracy yet. See [reference-image API instructions](https://developers.cloudflare.com/changelog/post/2026-01-15-flux-2-klein-4b-workers-ai/) and [current Workers AI free allocation/pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/). Free allocation is shared and limited, not unlimited generation.
+Never paste the token into chat or frontend code. A positive local generation allowance is also required. Restart the backend after saving. The adapter defaults to `@cf/black-forest-labs/flux-2-klein-9b`; set `VYUMI_CLOUDFLARE_MODEL` to that model or `@cf/black-forest-labs/flux-2-klein-4b`. Personal edits send the person as image 0, followed by one to three garment references; catalog shoots send the garment as image 0. References are resized to at most 511 pixels per side to meet the provider's input limit; this can lose fine garment details. Outputs are requested at 768 × 1024. This is a general image-editing model, with no measured garment or identity accuracy yet. See [reference-image API instructions](https://developers.cloudflare.com/changelog/post/2026-01-15-flux-2-klein-4b-workers-ai/) and [current Workers AI free allocation/pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/). Free allocation is shared and limited, not unlimited generation.
 
 For Gemini or FASHN (leave both Cloudflare credential fields empty):
 
 1. Copy `.env.example` to `backend/.env` if it does not exist. Git ignores this private file.
-2. Set a long `VYUMI_MERCHANT_TOKEN`, your `VYUMI_GEMINI_API_KEY` (or `VYUMI_FASHN_API_KEY`) and a positive `VYUMI_GENERATION_ALLOWANCE`. Keep keys out of chat and browser code. Gemini defaults to `VYUMI_GEMINI_MODEL=gemini-3.1-flash-image`; Google billing/quota must permit image output. The local demonstration allowance is three total requests, not a monetary cap.
+2. Set a long `VYUMI_MERCHANT_TOKEN`, your `VYUMI_GEMINI_API_KEY` (or `VYUMI_FASHN_API_KEY`) and a positive `VYUMI_GENERATION_ALLOWANCE`. Keep keys out of chat and browser code. Gemini defaults to `VYUMI_GEMINI_MODEL=gemini-3.1-flash-image`; Google billing/quota must permit image output. The local request allowance is configurable and is not a monetary cap.
 3. Prepare the local photo validators:
 
    ```powershell
@@ -101,3 +105,5 @@ Browser tests use isolated fixture servers on 3001/8001 and a fresh database. Th
 If generation is disabled, check the backend key/allowance and restart live mode. If photo validation is unavailable, run the downloader. For a rejected photo, try one person in a sharp, well-lit body photo. For a tiny PDF selection, choose a larger region or a separate high-resolution garment photo. For startup errors, read `backend-error.log` and confirm both ports are free.
 
 AI may change color, embroidery, borders, drape, identity or anatomy. Merchant review is mandatory; a representative saree/suit benchmark is still needed before real customer use. Use consented adult photos and licensed garment sources. No measured fidelity or physical fit accuracy is claimed.
+
+Collections support Women, Men and Unisex, with ten garment categories. Personal outfits allow up to three complementary pieces (top, bottom and optional jacket; or full outfit and optional jacket). Merchant catalog shoots offer model presentation and scene controls. Live personal downloads require user face/garment confirmation; this is manual review, not automatic identity verification.

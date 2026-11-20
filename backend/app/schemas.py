@@ -2,13 +2,27 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+GarmentCategory = Literal[
+    "saree",
+    "suit",
+    "shirt",
+    "top",
+    "trousers",
+    "skirt",
+    "dress",
+    "kurta",
+    "jacket",
+    "lehenga",
+]
+
 
 class ProductInput(BaseModel):
     # Product responses may be sent back by the editor; only these fields are writable.
     model_config = ConfigDict(extra="ignore")
     sku: str = Field(min_length=1, max_length=80)
     name: str = Field(min_length=1, max_length=160)
-    category: Literal["saree", "suit"]
+    category: GarmentCategory
+    audience: Literal["women", "men", "unisex"] = "unisex"
     description: str = Field(min_length=1, max_length=3000)
     price_minor: int | None = Field(default=None, ge=0, le=100_000_000)
     currency: str = "INR"
@@ -63,6 +77,8 @@ class CropInput(BaseModel):
 
 
 class CatalogGenerate(VersionInput):
+    presentation: Literal["women", "men", "unisex"] = "women"
+    scene: Literal["studio", "daylight", "outdoor"] = "studio"
     prompt: str = Field(default="", max_length=1000)
     idempotency_key: str = Field(min_length=8, max_length=100)
 
@@ -70,6 +86,7 @@ class CatalogGenerate(VersionInput):
 class TryOnGenerate(BaseModel):
     user_image_id: str
     product_id: str
+    additional_product_ids: list[str] = Field(default_factory=list, max_length=2)
     idempotency_key: str = Field(min_length=8, max_length=100)
 
 

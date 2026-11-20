@@ -33,8 +33,10 @@ def test_cloudflare_reference_multipart_and_output(monkeypatch, personal):
         for index in range(2 if personal else 1):
             with Image.open(io.BytesIO(fields[f"input_image_{index}"])) as image:
                 assert max(image.size) == 511 and image.mode == "RGB"
+                if personal and index == 0:
+                    assert image.getpixel((0, 0))[2] > 240
         if personal:
-            assert b"person in image 1" in fields["prompt"]
+            assert b"EDIT IMAGE 0" in fields["prompt"]
         return httpx.Response(
             200,
             json={
@@ -47,7 +49,11 @@ def test_cloudflare_reference_multipart_and_output(monkeypatch, personal):
     uri = "data:image/png;base64," + base64.b64encode(photo()).decode()
     inputs = {"product_image": uri}
     if personal:
-        inputs["model_image"] = uri
+        person = io.BytesIO()
+        Image.new("RGB", (600, 900), "blue").save(person, "PNG")
+        inputs["model_image"] = (
+            "data:image/png;base64," + base64.b64encode(person.getvalue()).decode()
+        )
     assert CloudflareClient("a" * 32, "private-test-token").generate(inputs) == photo()
 
 

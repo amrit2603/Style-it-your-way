@@ -43,6 +43,15 @@ class Database:
                 CREATE INDEX IF NOT EXISTS jobs_status ON jobs(status);
                 CREATE INDEX IF NOT EXISTS assets_expiry ON assets(expires);
             """)
+            if "context" not in {
+                row[1] for row in db.execute("PRAGMA table_info(jobs)")
+            }:
+                db.executescript(
+                    (
+                        Path(__file__).resolve().parents[1]
+                        / "migrations/001_job_context.sql"
+                    ).read_text()
+                )
 
     @contextmanager
     def connect(self, write=False):

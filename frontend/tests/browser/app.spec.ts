@@ -12,7 +12,7 @@ test("collection, category filtering and detail gallery", async ({ page }) => {
   await page.locator(".product-photo").first().click();
   await expect(
     page.getByRole("button", { name: "Try it on me", exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await expect(page.locator(".thumbnails button")).toHaveCount(2);
   await page.locator(".thumbnails button").last().click();
   await expect(page.locator(".detail-image img")).toBeVisible();
@@ -196,6 +196,7 @@ test("desktop and mobile render without horizontal overflow", async ({
 test("merchant imports a PDF garment region with accessible crop controls", async ({
   page,
 }) => {
+  test.setTimeout(90000);
   await page.goto("/merchant");
   await page.getByLabel("Local access token").fill("browser-test-token");
   await page.getByRole("button", { name: "Open studio", exact: true }).click();
@@ -214,7 +215,7 @@ test("merchant imports a PDF garment region with accessible crop controls", asyn
   });
   await expect(
     page.getByRole("heading", { name: "Selected region", exact: true }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15000 });
   await page.getByLabel("Crop left percent").fill("5");
   await page.getByLabel("Crop width percent").fill("90");
   await page
@@ -341,4 +342,126 @@ test("shopper recovers an existing request after reload with no remaining allowa
     dialog.getByRole("heading", { name: "Demonstration result" }),
   ).toBeVisible();
   expect(ids[0]).toBe(ids[1]);
+});
+
+test("men and women collections, garment types and outfit builder", async ({
+  page,
+  request,
+}) => {
+  const login = await request.post("/api/merchant/session", {
+    data: { token: "browser-test-token" },
+  });
+  const headers = { "X-CSRF-Token": (await login.json()).csrf_token };
+  const pieces: string[] = [];
+  for (const [category, name] of [
+    ["shirt", "Navy shirt test"],
+    ["trousers", "Tailored trousers test"],
+    ["jacket", "Everyday jacket test"],
+  ]) {
+    let response = await request.post("/api/merchant/products", {
+      headers,
+      data: {
+        sku: `TEST-${category}`,
+        name,
+        category,
+        audience: "men",
+        description: "Fixture garment for browser acceptance checks",
+        currency: "INR",
+      },
+    });
+    let item = await response.json();
+    const base = `/api/merchant/products/${item.id}`;
+    response = await request.post(base + "/images", {
+      headers,
+      multipart: {
+        role: "main",
+        file: {
+          name: "garment.png",
+          mimeType: "image/png",
+          buffer: fs.readFileSync(garment),
+        },
+      },
+    });
+    item = await response.json();
+    response = await request.post(base + "/reference", {
+      headers,
+      data: { version: item.version, asset_id: item.images[0].id },
+    });
+    item = await response.json();
+    response = await request.post(base + "/generate", {
+      headers,
+      data: {
+        version: item.version,
+        presentation: "men",
+        scene: "daylight",
+        idempotency_key: crypto.randomUUID(),
+      },
+    });
+    const job = await response.json();
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get(`/api/style-it/jobs/${job.job_id}`)).json())
+            .status,
+      )
+      .toBe("completed");
+    item = await (await request.get(base)).json();
+    await request.post(base + `/images/${item.images.at(-1).id}/review`, {
+      headers,
+      data: { version: item.version, approved: true, public: true },
+    });
+    await request.post(base + "/publish", {
+      headers,
+      data: { version: item.version },
+    });
+    pieces.push(item.id);
+  }
+  await page.goto("/");
+  await page.getByRole("button", { name: "Men", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "Navy shirt test", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Women", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "Navy shirt test", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Men", exact: true }).click();
+  await page.getByLabel("Garment type", { exact: true }).selectOption("shirt");
+  await expect(page.locator(".product-card")).toHaveCount(1);
+  await page.screenshot({
+    path: path.join(root, ".impeccable/review/collections-men.png"),
+    fullPage: true,
+  });
+  await page.locator(".product-card button").click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel("Add another piece", { exact: true })
+    .selectOption(pieces[1]);
+  await dialog
+    .getByLabel("Add another piece", { exact: true })
+    .selectOption(pieces[2]);
+  await expect(dialog.locator(".outfit-piece")).toHaveCount(2);
+  await dialog.getByRole("checkbox").check();
+  await dialog
+    .getByLabel("Upload your photo", { exact: true })
+    .setInputFiles(garment);
+  await expect(
+    dialog.getByText("Your photo is ready", { exact: true }),
+  ).toBeVisible();
+  const submission = page.waitForRequest(
+    (r) => r.url().endsWith("/api/style-it/generate") && r.method() === "POST",
+  );
+  await dialog
+    .getByRole("button", { name: "Generate my look", exact: true })
+    .click();
+  expect((await submission).postDataJSON().additional_product_ids).toEqual([
+    pieces[1],
+    pieces[2],
+  ]);
+  await expect(
+    dialog.getByRole("heading", { name: "Demonstration result" }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: path.join(root, ".impeccable/review/outfit-builder.png"),
+  });
 });

@@ -16,11 +16,13 @@ import MerchantGate from "@/components/MerchantGate";
 import Header from "@/components/Header";
 import Icon from "@/components/Icon";
 import PdfSelector from "@/components/PdfSelector";
+import { categories, audienceOf } from "@/lib/catalog";
 
 const empty = {
   name: "",
   sku: "",
-  category: "saree" as "saree" | "suit",
+  category: "saree" as Product["category"],
+  audience: "women" as NonNullable<Product["audience"]>,
   description: "",
   price: "",
   currency: "INR",
@@ -39,6 +41,8 @@ function Editor({ id }: { id: string }) {
     [prompt, setPrompt] = useState(
       "Adult model, neutral studio setting, natural light.",
     ),
+    [presentation, setPresentation] = useState("women"),
+    [scene, setScene] = useState("studio"),
     [job, setJob] = useState<Job>(),
     [health, setHealth] = useState<Health>();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -56,6 +60,7 @@ function Editor({ id }: { id: string }) {
     api<Product>(`/merchant/products/${id}`)
       .then((p) => {
         setProduct(p);
+        setPresentation(audienceOf(p));
         if (p.latest_job) {
           setJob(p.latest_job);
           if (!terminal(p.latest_job)) setStep(2);
@@ -64,8 +69,21 @@ function Editor({ id }: { id: string }) {
         if (
           pending?.payload.version === p.version &&
           typeof pending.payload.prompt === "string"
-        )
+        ) {
           setPrompt(pending.payload.prompt);
+          if (
+            ["women", "men", "unisex"].includes(
+              String(pending.payload.presentation),
+            )
+          )
+            setPresentation(String(pending.payload.presentation));
+          if (
+            ["studio", "daylight", "outdoor"].includes(
+              String(pending.payload.scene),
+            )
+          )
+            setScene(String(pending.payload.scene));
+        }
         if (
           new URLSearchParams(window.location.search).get("step") ===
             "images" &&
@@ -76,6 +94,7 @@ function Editor({ id }: { id: string }) {
           name: p.name,
           sku: p.sku,
           category: p.category,
+          audience: audienceOf(p),
           description: p.description,
           price: p.price_minor === null ? "" : String(p.price_minor / 100),
           currency: p.currency,
@@ -135,6 +154,7 @@ function Editor({ id }: { id: string }) {
         name: form.name,
         sku: form.sku,
         category: form.category,
+        audience: form.audience,
         description: form.description,
         price_minor: price,
         currency: form.currency,
@@ -300,12 +320,34 @@ function Editor({ id }: { id: string }) {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      category: e.target.value as "saree" | "suit",
+                      category: e.target.value as Product["category"],
                     })
                   }
                 >
-                  <option value="saree">Saree</option>
-                  <option value="suit">Suit</option>
+                  {categories.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                Collection
+                <select
+                  value={form.audience}
+                  onChange={(e) => {
+                    setForm({
+                      ...form,
+                      audience: e.target.value as NonNullable<
+                        Product["audience"]
+                      >,
+                    });
+                    setPresentation(e.target.value);
+                  }}
+                >
+                  <option value="women">Women</option>
+                  <option value="men">Men</option>
+                  <option value="unisex">Unisex</option>
                 </select>
               </label>
               <label className="field">
@@ -533,8 +575,32 @@ function Editor({ id }: { id: string }) {
                 </p>
               </div>
               <div>
+                <div className="form-columns">
+                  <label className="field">
+                    Model presentation
+                    <select
+                      value={presentation}
+                      onChange={(e) => setPresentation(e.target.value)}
+                    >
+                      <option value="women">Adult woman</option>
+                      <option value="men">Adult man</option>
+                      <option value="unisex">Adult, any presentation</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    Shoot setting
+                    <select
+                      value={scene}
+                      onChange={(e) => setScene(e.target.value)}
+                    >
+                      <option value="studio">Neutral studio</option>
+                      <option value="daylight">Window daylight</option>
+                      <option value="outdoor">Natural outdoor light</option>
+                    </select>
+                  </label>
+                </div>
                 <label className="field">
-                  Model & scene direction
+                  Additional shoot direction
                   <textarea
                     rows={4}
                     maxLength={1000}
@@ -558,7 +624,12 @@ function Editor({ id }: { id: string }) {
                     action(async () => {
                       const next = await generationRequest(
                         base + "/generate",
-                        { version: product.version, prompt },
+                        {
+                          version: product.version,
+                          prompt,
+                          presentation,
+                          scene,
+                        },
                         job && terminal(job) ? job.job_id : undefined,
                       );
                       setJob(next);

@@ -100,6 +100,16 @@ def check_person(image: Image.Image) -> dict:
             "Use a clear front-facing or slight-angle photo with your shoulders and hips visible.",
         )
     landmarks = poses[0]
+    if any(
+        min(landmarks[index].visibility, landmarks[index].presence) < 0.6
+        or not 0.02 < landmarks[index].x < 0.98
+        or not 0.02 < landmarks[index].y < 0.98
+        for index in (0, 2, 5)
+    ):
+        return rejected(
+            "photo_face",
+            "Keep your whole face visible and face the camera, without a face covering or heavy shadow.",
+        )
     region = [landmarks[index] for index in (11, 12, 23, 24)]
     if any(
         min(point.visibility, point.presence) < 0.6

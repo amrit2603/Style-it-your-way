@@ -12,12 +12,18 @@ def load_product(db, product_id, public=False):
     if row is None or (public and not row["published"]):
         fail("product_not_found", "This garment is not available.", 404)
     product = json.loads(row["published"] if public else row["draft"])
+    product.setdefault(
+        "audience", "women" if product["category"] in {"saree", "suit"} else "unisex"
+    )
     product["published"] = bool(row["published"])
     return product
 
 
 def response_product(product, public=False):
     result = {**product, "images": []}
+    result.setdefault(
+        "audience", "women" if product["category"] in {"saree", "suit"} else "unisex"
+    )
     for image in product["images"]:
         if public and not image["public"]:
             continue

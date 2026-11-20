@@ -1,4 +1,5 @@
 "use client";
+import { categoryName, audienceOf } from "@/lib/catalog";
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/Header";
@@ -72,7 +73,7 @@ export default function ProductPage({
             </div>
             <div className="detail-copy">
               <p className="muted">
-                {product.category === "saree" ? "Saree" : "Suit"} ·{" "}
+                {categoryName(product.category)} · {audienceOf(product)} ·{" "}
                 {product.sku}
               </p>
               <h1>{product.name}</h1>

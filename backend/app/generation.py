@@ -43,7 +43,9 @@ class GenerationService:
         self.db, self.settings = database, settings
         self.provider = (
             CloudflareClient(
-                settings.cloudflare_account_id, settings.cloudflare_api_token
+                settings.cloudflare_account_id,
+                settings.cloudflare_api_token,
+                settings.cloudflare_model,
             )
             if settings.provider_name == "Cloudflare"
             else (
@@ -116,6 +118,64 @@ class GenerationService:
                     "Confirm the original garment reference before generating.",
                 )
             get_asset(db, product["reference_id"])
+            context = {
+                "provider": self.settings.provider_name,
+                "garments": [
+                    {
+                        "product_id": product_id,
+                        "reference_id": product["reference_id"],
+                        "category": product["category"],
+                        "version": product["version"],
+                    }
+                ],
+            }
+            if operation == "catalog":
+                context.update(presentation=payload.presentation, scene=payload.scene)
+            else:
+                ids = [product_id, *payload.additional_product_ids]
+                if len(ids) != len(set(ids)):
+                    fail("duplicate_garment", "Choose each garment only once.")
+                if payload.additional_product_ids and not (
+                    self.settings.fixture
+                    or isinstance(self.provider, (CloudflareClient, GeminiClient))
+                ):
+                    fail(
+                        "outfit_unavailable",
+                        "This provider supports one garment per preview.",
+                    )
+                for extra_id in payload.additional_product_ids:
+                    extra = load_product(db, extra_id, public=True)
+                    if not extra["reference_id"]:
+                        fail(
+                            "reference_required",
+                            "Every outfit piece needs a confirmed original reference.",
+                        )
+                    get_asset(db, extra["reference_id"])
+                    context["garments"].append(
+                        {
+                            "product_id": extra_id,
+                            "reference_id": extra["reference_id"],
+                            "category": extra["category"],
+                            "version": extra["version"],
+                        }
+                    )
+                slots = [
+                    "bottom"
+                    if g["category"] in {"trousers", "skirt"}
+                    else "outer"
+                    if g["category"] == "jacket"
+                    else "full"
+                    if g["category"] in {"saree", "suit", "dress", "lehenga"}
+                    else "top"
+                    for g in context["garments"]
+                ]
+                if len(slots) != len(set(slots)) or (
+                    "full" in slots and any(slot in slots for slot in {"top", "bottom"})
+                ):
+                    fail(
+                        "outfit_conflict",
+                        "Choose one top and one bottom, with an optional jacket; or one full outfit with an optional jacket.",
+                    )
             expires, photo_id = None, None
             if operation == "tryon":
                 photo_id = payload.user_image_id
@@ -171,6 +231,9 @@ class GenerationService:
             db.execute(
                 "INSERT INTO jobs(id,owner,operation,product_id,version,reference_id,photo_id,prompt,request_key,fingerprint,status,fixture,expires,created,updated) VALUES (:id,:owner,:operation,:product_id,:version,:reference_id,:photo_id,:prompt,:request_key,:fingerprint,:status,:fixture,:expires,:created,:updated)",
                 job,
+            )
+            db.execute(
+                "UPDATE jobs SET context=? WHERE id=?", (json.dumps(context), job["id"])
             )
             result = db.execute(
                 "SELECT * FROM jobs WHERE id=?", (job["id"],)
@@ -315,6 +378,15 @@ class GenerationService:
                     self._finish(job, self._fixture_image())
                     return
                 if job["status"] == "queued":
+                    context = json.loads(job["context"])
+                    if (
+                        context.get("provider", self.settings.provider_name)
+                        != self.settings.provider_name
+                    ):
+                        raise ProviderError(
+                            "provider_changed",
+                            "This queued request belongs to another provider. Restore its settings before creating a new request.",
+                        )
                     with self.db.connect() as db:
                         garment = get_asset(db, job["reference_id"])
                         garment_data = asset_path(self.db, garment).read_bytes()
@@ -325,6 +397,12 @@ class GenerationService:
                             if job["photo_id"]
                             else None
                         )
+                        extra_data = [
+                            asset_path(
+                                self.db, get_asset(db, g["reference_id"])
+                            ).read_bytes()
+                            for g in context.get("garments", [])[1:]
+                        ]
                     inputs = {
                         "product_image": self._data_uri(garment_data),
                         "resolution": "1k",
@@ -335,10 +413,14 @@ class GenerationService:
                     }
                     if job["operation"] == "tryon":
                         inputs["model_image"] = self._data_uri(person_data)
+                        if extra_data:
+                            inputs["additional_images"] = [
+                                self._data_uri(data) for data in extra_data
+                            ]
                     else:
                         inputs.update(
                             {
-                                "prompt": "An adult fashion model wearing this exact garment, neutral studio, preserve garment design. "
+                                "prompt": f"An adult {context.get('presentation', 'women')} fashion model with a natural, individual face, realistic skin texture and body proportions. Scene: {context.get('scene', 'studio')}. Preserve the exact garment and avoid beauty filters or plastic skin. "
                                 + job["prompt"],
                                 "aspect_ratio": "2:3",
                             }

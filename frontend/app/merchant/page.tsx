@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, errorText, Product, Health, logout } from "@/lib/api";
 import MerchantGate from "@/components/MerchantGate";
+import { categoryName, audienceOf } from "@/lib/catalog";
 import Header from "@/components/Header";
 import Icon from "@/components/Icon";
-
 function Catalog() {
   const [products, setProducts] = useState<Product[]>([]),
     [filter, setFilter] = useState("all"),
@@ -138,7 +138,10 @@ function Catalog() {
                     <small>{p.sku}</small>
                   </div>
                 </div>
-                <span className="capitalize">{p.category}</span>
+                <span className="capitalize">
+                  {categoryName(p.category)}
+                  <small className="catalog-audience">{audienceOf(p)}</small>
+                </span>
                 <span>{p.images.length} images</span>
                 <span className={`pill ${p.published ? "published" : ""}`}>
                   {status(p)}

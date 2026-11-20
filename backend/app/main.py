@@ -24,6 +24,7 @@ from .photo_checks import check_person, validator_ready
 from .schemas import (
     CatalogGenerate,
     CropInput,
+    GarmentCategory,
     MerchantLogin,
     ProductEdit,
     ProductInput,
@@ -327,7 +328,10 @@ def create_app(settings=None):
             return catalog.response_product(catalog.load_product(db, product_id))
 
     @app.get("/products")
-    def public_products(category: Literal["saree", "suit"] | None = None):
+    def public_products(
+        category: GarmentCategory | None = None,
+        audience: Literal["women", "men", "unisex"] | None = None,
+    ):
         with database.connect() as db:
             products = [
                 catalog.load_product(db, row["id"], public=True)
@@ -338,7 +342,12 @@ def create_app(settings=None):
         return [
             catalog.response_product(product, public=True)
             for product in products
-            if not category or product["category"] == category
+            if (not category or product["category"] == category)
+            and (
+                not audience
+                or product["audience"] == audience
+                or (audience != "unisex" and product["audience"] == "unisex")
+            )
         ]
 
     @app.get("/products/{product_id}")

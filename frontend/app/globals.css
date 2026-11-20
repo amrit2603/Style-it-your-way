@@ -1898,3 +1898,104 @@ dialog.tryon-drawer::backdrop {
     transition: none !important;
   }
 }
+/* Collection controls stay separate from garment photography. */
+.collection-intro {
+  padding: 30px 0 26px;
+  border-bottom: 1px solid var(--line);
+}
+.collection-intro h1 {
+  font-size: 38px;
+  font-weight: 500;
+  margin: 0 0 8px;
+}
+.collection-intro p {
+  color: var(--muted);
+  margin: 0;
+}
+.collection-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 0;
+  flex-wrap: wrap;
+}
+.audience-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.audience-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px 18px;
+  background: transparent;
+}
+.audience-tabs button.active {
+  border-bottom-color: var(--gold);
+  color: var(--gold);
+}
+.category-select {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.category-select select {
+  min-height: 44px;
+  max-width: 220px;
+}
+.catalog-audience {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.outfit-builder {
+  margin: 20px 0;
+  padding: 18px 0;
+  border-block: 1px solid var(--line);
+}
+.outfit-builder h3 {
+  margin: 0 0 6px;
+}
+.outfit-piece {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+.outfit-piece img {
+  width: 40px;
+  height: 54px;
+  object-fit: cover;
+}
+.outfit-piece span {
+  flex: 1;
+}
+.outfit-piece button {
+  font-size: 13px;
+  padding: 6px;
+}
+.rejected-download {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (max-width: 700px) {
+  .collection-intro {
+    padding-top: 22px;
+  }
+  .collection-intro h1 {
+    font-size: 30px;
+  }
+  .collection-filters {
+    gap: 12px;
+  }
+  .audience-tabs button {
+    padding: 10px 12px;
+  }
+  .category-select {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

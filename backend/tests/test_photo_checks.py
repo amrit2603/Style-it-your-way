@@ -57,6 +57,14 @@ def test_accepted_body_frame(monkeypatch):
     assert photo_checks.check_person(detailed_photo())["accepted"] is True
 
 
+def test_hidden_face_is_rejected(monkeypatch):
+    points = pose()
+    points[2].visibility = 0.2
+    monkeypatch.setattr(photo_checks, "validator_ready", lambda: True)
+    monkeypatch.setattr(photo_checks, "_infer", lambda image: ([object()], [points]))
+    assert photo_checks.check_person(detailed_photo())["code"] == "photo_face"
+
+
 @pytest.mark.parametrize(
     "color,code",
     [(0, "photo_lighting"), (255, "photo_lighting"), (128, "photo_blurred")],

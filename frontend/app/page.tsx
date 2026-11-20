@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { categories, audiences, categoryName, audienceOf } from "@/lib/catalog";
 import Header from "@/components/Header";
 import TryOn from "@/components/TryOn";
 import Icon from "@/components/Icon";
@@ -8,6 +9,7 @@ import { api, Product, money, errorText, Health } from "@/lib/api";
 export default function Store() {
   const [products, setProducts] = useState<Product[]>([]),
     [category, setCategory] = useState("all"),
+    [audience, setAudience] = useState("all"),
     [search, setSearch] = useState(""),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
@@ -31,6 +33,9 @@ export default function Store() {
   const shown = products.filter(
     (p) =>
       (category === "all" || p.category === category) &&
+      (audience === "all" ||
+        audienceOf(p) === audience ||
+        (audience !== "unisex" && audienceOf(p) === "unisex")) &&
       `${p.name} ${p.sku}`.toLowerCase().includes(search.toLowerCase()),
   );
   return (
@@ -58,15 +63,54 @@ export default function Store() {
         </div>
       )}
       <main className="store-main">
+        <div className="collection-intro">
+          <h1>Find your next look.</h1>
+          <p>Discover a garment. Build an outfit. See it on you.</p>
+        </div>
+        <div className="collection-filters">
+          <div
+            className="audience-tabs"
+            role="group"
+            aria-label="Shop by collection"
+          >
+            {audiences.map(([value, label]) => (
+              <button
+                key={value}
+                aria-pressed={audience === value}
+                className={audience === value ? "active" : ""}
+                onClick={() => setAudience(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="category-select">
+            Garment type
+            <select
+              aria-label="Garment type"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="all">All garments</option>
+              {categories.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="collection-heading">
           <div>
-            <h1>
+            <h2>
               {category === "saree"
                 ? "Sarees"
                 : category === "suit"
                   ? "Suits"
-                  : "The collection"}
-            </h1>
+                  : category !== "all"
+                    ? categoryName(category)
+                    : "The collection"}
+            </h2>
             <p>Find your garment. Make the look your own.</p>
           </div>
           <label className="search">
@@ -120,7 +164,7 @@ export default function Store() {
                   <span>{money(p)}</span>
                 </div>
                 <p className="product-category">
-                  {p.category === "saree" ? "Saree" : "Suit"}
+                  {categoryName(p.category)} · {audienceOf(p)}
                   {p.sizes ? ` · ${p.sizes}` : ""}
                 </p>
                 <button
@@ -146,13 +190,14 @@ export default function Store() {
             <p>
               {products.length
                 ? "Try another name or collection."
-                : "Reviewed sarees and suits will appear here once the merchant publishes them."}
+                : "Reviewed garments will appear here once the merchant publishes them."}
             </p>
             {products.length ? (
               <button
                 onClick={() => {
                   setSearch("");
                   setCategory("all");
+                  setAudience("all");
                 }}
               >
                 Clear filters

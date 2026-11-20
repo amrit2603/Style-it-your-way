@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.1-flash-image"
     cloudflare_account_id: str = ""
     cloudflare_api_token: str = ""
+    cloudflare_model: str = "@cf/black-forest-labs/flux-2-klein-9b"
     generation_allowance: int = Field(default=0, ge=0, le=1000)
     generation_mode: str = "live"
     start_worker: bool = True

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
+import { canCombine, categoryName } from "@/lib/catalog";
 import {
   api,
   ensureSession,
@@ -18,7 +19,7 @@ import {
 const storageKey = "vyumi-active-look";
 export default function TryOn({
   product,
-  products,
+  products: initialProducts,
   onSelect,
   onClose,
 }: {
@@ -27,7 +28,11 @@ export default function TryOn({
   onSelect: (p: Product) => void;
   onClose: () => void;
 }) {
-  const [health, setHealth] = useState<Health>(),
+  const [products, setProducts] = useState(initialProducts),
+    [extras, setExtras] = useState<string[]>([]),
+    [qualityRejected, setQualityRejected] = useState(false),
+    [qualityConfirmed, setQualityConfirmed] = useState(false),
+    [health, setHealth] = useState<Health>(),
     [photo, setPhoto] = useState<Photo>(),
     [job, setJob] = useState<Job>(),
     [consent, setConsent] = useState(false),
@@ -40,11 +45,18 @@ export default function TryOn({
   const dialog = useRef<HTMLDialogElement>(null),
     fileInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
+    setQualityConfirmed(false);
+    setQualityRejected(false);
+  }, [job?.job_id]);
+  useEffect(() => {
     const previous = document.activeElement as HTMLElement;
     const oldOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const activeDialog = dialog.current;
     activeDialog?.showModal();
+    api<Product[]>("/products")
+      .then(setProducts)
+      .catch(() => {});
     ensureSession()
       .then(async (current) => {
         setScope(current.csrf_token);
@@ -57,10 +69,16 @@ export default function TryOn({
             if (selected && (!product || product.id === selected.id)) {
               onSelect(selected);
               setPhoto(saved.photo);
+              setExtras(
+                Array.isArray(saved.extras) ? saved.extras.slice(0, 2) : [],
+              );
               const request = savedGeneration("/style-it/generate");
               const matches =
                 request?.payload.product_id === selected.id &&
-                request?.payload.user_image_id === saved.photo?.id;
+                request?.payload.user_image_id === saved.photo?.id &&
+                JSON.stringify(
+                  request?.payload.additional_product_ids || [],
+                ) === JSON.stringify(saved.extras || []);
               setJob(saved.job || (matches ? request?.job : undefined));
               setConsent(true);
             }
@@ -85,9 +103,9 @@ export default function TryOn({
     if (photo && product && scope)
       sessionStorage.setItem(
         storageKey,
-        JSON.stringify({ photo, job, productId: product.id, scope }),
+        JSON.stringify({ photo, job, productId: product.id, scope, extras }),
       );
-  }, [photo, job, product, scope]);
+  }, [photo, job, product, scope, extras]);
   useEffect(() => {
     if (!job || terminal(job)) return;
     let active = true;
@@ -156,6 +174,7 @@ export default function TryOn({
       if (photo) await api(`/assets/${photo.id}`, "DELETE");
       setPhoto(undefined);
       setJob(undefined);
+      setQualityRejected(false);
       sessionStorage.removeItem(storageKey);
       const body = new FormData();
       body.set("file", file);
@@ -179,6 +198,7 @@ export default function TryOn({
         await generationRequest("/style-it/generate", {
           product_id: product.id,
           user_image_id: photo.id,
+          additional_product_ids: extras,
         }),
       );
     } catch (e) {
@@ -195,6 +215,7 @@ export default function TryOn({
       await api(`/assets/${photo.id}`, "DELETE");
       setPhoto(undefined);
       setJob(undefined);
+      setQualityRejected(false);
       sessionStorage.removeItem(storageKey);
     } catch (e) {
       setError(errorText(e));
@@ -211,7 +232,9 @@ export default function TryOn({
     !!photo &&
     !!product &&
     previousRequest?.payload.product_id === product.id &&
-    previousRequest?.payload.user_image_id === photo.id;
+    previousRequest?.payload.user_image_id === photo.id &&
+    JSON.stringify(previousRequest?.payload.additional_product_ids || []) ===
+      JSON.stringify(extras);
   return (
     <div
       className="drawer-backdrop"
@@ -253,6 +276,14 @@ export default function TryOn({
           </button>
         </div>
         <div className="drawer-body">
+          {health?.generation_mode === "live" &&
+            health?.provider === "Cloudflare" && (
+              <p className="notice">
+                Experimental preview on Cloudflare. This model can alter faces
+                or keep parts of the old outfit. Compare the result and reject
+                any mismatch.
+              </p>
+            )}
           {health?.generation_mode === "fixture" && (
             <div className="notice">
               Demo mode: the result is a fixed, labelled sample. It will not
@@ -287,6 +318,8 @@ export default function TryOn({
                   );
                   if (selected) {
                     onSelect(selected);
+                    setExtras([]);
+                    setQualityRejected(false);
                     setJob(undefined);
                   }
                 }}
@@ -302,14 +335,82 @@ export default function TryOn({
               </select>
             </label>
           )}
+          {product && (
+            <section className="outfit-builder" aria-label="Build your outfit">
+              <h3>Make it an outfit</h3>
+              <p className="muted">
+                Up to three complementary pieces. Your uploaded photo stays the
+                person reference.
+              </p>
+              {extras.map((id) => {
+                const piece = products.find((p) => p.id === id);
+                return (
+                  <div className="outfit-piece" key={id}>
+                    {piece?.images[0] && (
+                      <img src={piece.images[0].url} alt="" />
+                    )}
+                    <span>{piece?.name || "Selected garment"}</span>
+                    <button
+                      aria-label={`Remove ${piece?.name || "garment"}`}
+                      disabled={processing || busy}
+                      onClick={() => {
+                        setExtras(extras.filter((x) => x !== id));
+                        setJob(undefined);
+                        setQualityRejected(false);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
+              <label className="field">
+                Add another piece
+                <select
+                  aria-label="Add another piece"
+                  value=""
+                  disabled={
+                    processing ||
+                    busy ||
+                    extras.length >= 2 ||
+                    health?.provider === "FASHN"
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setExtras([...extras, e.target.value]);
+                      setJob(undefined);
+                      setQualityRejected(false);
+                    }
+                  }}
+                >
+                  <option value="">Choose a matching piece</option>
+                  {products
+                    .filter((p) =>
+                      canCombine(
+                        [
+                          product,
+                          ...products.filter((p) => extras.includes(p.id)),
+                        ],
+                        p,
+                      ),
+                    )
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} · {categoryName(p.category)}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </section>
+          )}
           {product && !photo && (
             <>
               <div className="chat-message">
                 <h3>Let’s start with your photo</h3>
                 <p>
                   Use one clear photo of yourself, facing forward or at a slight
-                  angle. Show your full body for a saree or suit, with even
-                  lighting and no filters.
+                  angle. Keep your face unobstructed. Show your full body for a
+                  saree or suit, with even lighting and no filters.
                 </p>
                 <p>A face-only selfie won’t show how the garment drapes.</p>
               </div>
@@ -465,7 +566,7 @@ export default function TryOn({
               <p className="muted">
                 {job.fixture
                   ? "Fixed sample, not a personalized try-on."
-                  : "An approximate preview. AI may change fabric, drape or body details."}
+                  : "Compare your face and garment carefully. This edits your uploaded photo; it is not a measured fit prediction."}
               </p>
               <div className="comparison">
                 <figure>
@@ -486,8 +587,41 @@ export default function TryOn({
                   </figcaption>
                 </figure>
               </div>
+              {qualityRejected && (
+                <p className="error" role="alert">
+                  Preview rejected. Do not use it if your face or the garment
+                  changed. Try a clearer, front-facing photo; results from this
+                  model may still vary.
+                </p>
+              )}
+              <button
+                className="wide"
+                onClick={() => setQualityRejected(true)}
+                disabled={qualityRejected}
+              >
+                Face or garment does not match
+              </button>
+              {!job.fixture && (
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={qualityConfirmed}
+                    disabled={qualityRejected}
+                    onChange={(e) => setQualityConfirmed(e.target.checked)}
+                  />
+                  I checked that the face still looks like me and the garment
+                  matches.
+                </label>
+              )}
               <a
-                className="gold button wide"
+                aria-disabled={
+                  qualityRejected || (!job.fixture && !qualityConfirmed)
+                }
+                onClick={(e) => {
+                  if (qualityRejected || (!job.fixture && !qualityConfirmed))
+                    e.preventDefault();
+                }}
+                className={`gold button wide ${qualityRejected ? "rejected-download" : ""}`}
                 href={`${job.result_image_url}?download=true`}
                 download
               >
@@ -498,6 +632,7 @@ export default function TryOn({
                 className="wide"
                 onClick={() => {
                   clearGeneration("/style-it/generate");
+                  setQualityRejected(false);
                   setJob(undefined);
                 }}
               >
