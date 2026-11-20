@@ -316,11 +316,17 @@ export default function TryOn({
               <div className="privacy-box">
                 <h3>Your photo stays private</h3>
                 <p>
-                  Live generation sends your photo to FASHN. Local photos and
-                  results expire one hour after upload. You can delete them
-                  sooner. Provider request records may remain under its{" "}
+                  Live generation sends your photo to{" "}
+                  {health?.provider || "the configured image provider"}. Local
+                  photos and results expire one hour after upload. You can
+                  delete them sooner. Provider request records may remain under
+                  its{" "}
                   <a
-                    href="https://docs.fashn.ai/api-overview/data-retention-privacy"
+                    href={
+                      health?.provider === "Gemini"
+                        ? "https://ai.google.dev/gemini-api/terms"
+                        : "https://docs.fashn.ai/api-overview/data-retention-privacy"
+                    }
                     target="_blank"
                     rel="noreferrer"
                   >

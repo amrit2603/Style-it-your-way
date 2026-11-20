@@ -17,7 +17,7 @@ from .assets import (
 )
 from .catalog import check_version, load_product, save_draft
 from .config import now
-from .provider import FashnClient, ProviderError
+from .provider import FashnClient, GeminiClient, ProviderError
 from .security import fail
 
 TERMINAL = {"completed", "failed", "cancelled", "expired", "needs_review"}
@@ -41,7 +41,11 @@ def job_response(job):
 class GenerationService:
     def __init__(self, database, settings):
         self.db, self.settings = database, settings
-        self.provider = FashnClient(settings.fashn_api_key)
+        self.provider = (
+            GeminiClient(settings.gemini_api_key, settings.gemini_model)
+            if settings.gemini_api_key
+            else FashnClient(settings.fashn_api_key)
+        )
         self.stop = threading.Event()
         self.thread = None
         self.tick_lock = threading.Lock()
@@ -88,12 +92,12 @@ class GenerationService:
                     429,
                 )
             if not self.settings.fixture and (
-                not self.settings.fashn_api_key
+                not self.settings.provider_configured
                 or self.settings.generation_allowance < 1
             ):
                 fail(
                     "provider_not_configured",
-                    "Image generation is not configured. Set the backend FASHN key and generation allowance.",
+                    "Image generation is not configured. Set a backend Gemini or FASHN key and generation allowance.",
                     503,
                 )
             product_id = payload.product_id if operation == "tryon" else product_id
@@ -333,6 +337,15 @@ class GenerationService:
                                 "aspect_ratio": "2:3",
                             }
                         )
+                    if isinstance(self.provider, GeminiClient):
+                        image = self.provider.generate(inputs)
+                        with self.db.connect(write=True) as db:
+                            db.execute(
+                                "UPDATE jobs SET status='processing',updated=? WHERE id=? AND status='submitting'",
+                                (now(), job["id"]),
+                            )
+                        self._finish(job, image)
+                        return
                     prediction_id = self.provider.submit(
                         "tryon-max" if person_data else "product-to-model", inputs
                     )

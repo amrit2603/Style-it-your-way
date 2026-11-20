@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     data_dir: Path = ROOT / "data"
     merchant_token: str = ""
     fashn_api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.1-flash-image"
     generation_allowance: int = Field(default=0, ge=0, le=1000)
     generation_mode: str = "live"
     start_worker: bool = True
@@ -27,6 +29,10 @@ class Settings(BaseSettings):
     @property
     def fixture(self):
         return self.generation_mode == "fixture"
+
+    @property
+    def provider_configured(self):
+        return bool(self.gemini_api_key or self.fashn_api_key)
 
 
 def now():

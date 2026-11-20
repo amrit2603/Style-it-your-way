@@ -9,7 +9,7 @@ Frontend calls `/api` on its own origin; Next rewrites to FastAPI. JSON errors: 
 - `POST /merchant/session` `{token}` -> merchant session and `{role,csrf_token}`. Token is a local backend setting; show a token entry form, never embed it in client code.
 - `POST /sessions/logout` -> `{ok:true}`.
 - Every other mutation sends `X-CSRF-Token` matching the current session. Reject foreign Origin headers. Session creation/login also reject foreign Origin.
-- `GET /health` -> `{status:'ok',provider_ready:boolean,validator_ready:boolean,generation_mode:'live'|'fixture',remaining_allowance:number}`. A missing key or allowance disables live generation. Fixture mode is explicitly watermarked, never a personalized result.
+- `GET /health` -> `{status:'ok',provider_ready:boolean,provider:'Gemini'|'FASHN',validator_ready:boolean,generation_mode:'live'|'fixture',remaining_allowance:number}`. A missing key or allowance disables live generation. Readiness means configured locally, not verified provider quota. Gemini takes precedence when its key is set; there is no automatic paid provider fallback. Fixture mode is explicitly watermarked, never a personalized result.
 
 ## Product shape
 

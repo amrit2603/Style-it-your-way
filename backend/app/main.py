@@ -176,9 +176,10 @@ def create_app(settings=None):
         return {
             "status": "ok",
             "provider_ready": settings.fixture
-            or bool(settings.fashn_api_key and generation.remaining() > 0),
+            or bool(settings.provider_configured and generation.remaining() > 0),
             "validator_ready": validator_ready(),
             "generation_mode": settings.generation_mode,
+            "provider": "Gemini" if settings.gemini_api_key else "FASHN",
             "remaining_allowance": generation.remaining(),
         }
 

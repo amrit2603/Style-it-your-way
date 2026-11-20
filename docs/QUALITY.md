@@ -8,7 +8,7 @@ Executed checks cover upload validation, PDF corruption/encryption/page limits/r
 
 The real local MediaPipe detector/pose models loaded and accepted a full-body **synthetic demonstration image**. Unit tests separately mock detector outputs to check failure branches. This is not a validated diverse-person golden dataset.
 
-No paid FASHN call was made: no key/allowance was provided. The real provider adapter is implemented; deterministic substitutes check its request/result boundaries. No real identity-preservation rate, garment-fidelity percentage, paid latency, measured fit or currency cost is claimed.
+No paid FASHN call was made. Gemini was subsequently connected: its model-list request returned HTTP 200, and one real catalog image request returned HTTP 429 (quota unavailable). No successful live image output was obtained. Gemini tests bring the backend total to **61 passing tests**, covering reference ordering, image decoding, quota/permission/server errors, ambiguous responses and completed-job replay without a second call. The production build/TypeScript check passed after integration. No real identity-preservation rate, garment-fidelity percentage, paid latency, measured fit or currency cost is claimed.
 
 Before real customer use, evaluate a fixed set of licensed saree/suit images and consented adult photos. Include distinctive borders, embroidery, prints, transparency, multi-piece suits, occlusion and varying framing. Agree quality thresholds before judging outputs. Record endpoint/settings, product/consent references, altered garment features, identity/anatomy issues, latency, credits/currency and merchant decision. Reject misleading catalog variants even if attractive.
 

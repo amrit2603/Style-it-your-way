@@ -7,7 +7,7 @@ A local Next.js + FastAPI prototype with two connected workflows:
 
 The storefront follows the supplied Panna reference: portrait catalog grid, compact white header, gold actions and a chat drawer. Merchant preparation follows Details → Images → Generate → Review & publish.
 
-**Real generation is wired to FASHN. No paid trial was run because no API key was supplied.** Demo mode returns an explicitly labelled fixed sample; it does not generate a personalized result. Its sample garments are fictional.
+**Real generation supports Gemini and FASHN.** A configured Gemini key takes precedence; otherwise FASHN is used. The Gemini key passed Google's model-list check, but the live image trial returned HTTP 429 (quota unavailable). No live generated output was obtained. Demo mode returns an explicitly labelled fixed sample; it does not generate a personalized result. Its sample garments are fictional.
 
 ## Run the local demonstration
 
@@ -28,7 +28,7 @@ Keep the terminal open; Ctrl+C stops the servers owned by that script. Ports 300
 ## Enable real generation
 
 1. Copy `.env.example` to `backend/.env` if it does not exist. Git ignores this private file.
-2. Set a long `VYUMI_MERCHANT_TOKEN`, your `VYUMI_FASHN_API_KEY` and a positive `VYUMI_GENERATION_ALLOWANCE` such as `10`. Keep keys out of chat and browser code.
+2. Set a long `VYUMI_MERCHANT_TOKEN`, your `VYUMI_GEMINI_API_KEY` (or `VYUMI_FASHN_API_KEY`) and a positive `VYUMI_GENERATION_ALLOWANCE`. Keep keys out of chat and browser code. Gemini defaults to `VYUMI_GEMINI_MODEL=gemini-3.1-flash-image`; Google billing/quota must permit image output. The local demonstration allowance is three total requests, not a monetary cap.
 3. Prepare the local photo validators:
 
    ```powershell
@@ -46,7 +46,9 @@ Live mode uses `data/live`. Enter your configured merchant token, upload a real 
 
 The allowance counts reserved live requests for this database; it is **not an exact monetary spend cap**. Missing keys or zero/exhausted allowance disable live generation. Interrupted submissions without a saved provider prediction ID are marked for operator review, never silently resubmitted. Inspect the provider dashboard before requesting another paid attempt.
 
-Models: [`product-to-model`](https://docs.fashn.ai/api-reference/product-to-model) for catalog shoots; [`tryon-max`](https://docs.fashn.ai/api-reference/tryon-max) for a real person image. Configuration: one output, 1k resolution, balanced mode, catalog aspect ratio 2:3. Verify [current credit pricing](https://docs.fashn.ai/api-overview/api-fundamentals#credits--pricing) before spending. The shopper pipeline uses the confirmed original garment photo/PDF crop, not a previously generated catalog photo.
+Gemini receives the confirmed garment reference and, for personal try-on, the consenting person's photo through Google's fixed HTTPS API origin. One 1K output is requested; no automatic paid retry or provider fallback occurs. See [Google image documentation](https://ai.google.dev/gemini-api/docs/image-generation) and [API terms](https://ai.google.dev/gemini-api/terms). Interrupted synchronous submissions require operator review before retrying.
+
+FASHN models remain [`product-to-model`](https://docs.fashn.ai/api-reference/product-to-model) for catalog shoots and [`tryon-max`](https://docs.fashn.ai/api-reference/tryon-max) for a real person image. Configuration: one output, 1k resolution, balanced mode, catalog aspect ratio 2:3. Verify [current credit pricing](https://docs.fashn.ai/api-overview/api-fundamentals#credits--pricing) before spending. Both providers use the confirmed original garment photo/PDF crop for shopper try-on, not a previously generated catalog photo.
 
 ## Inputs and outputs
 
@@ -60,7 +62,7 @@ Catalog images need explicit review before publication. Original references star
 
 ## Privacy and scope
 
-Personal inputs/results expire one hour after input upload. Access is revoked immediately at expiry/deletion/logout; queued personal work is cancelled, late results discarded, and cleanup retries locked file removal. Inputs/outputs use data URIs/base64 so the local photo server is not exposed publicly. Local deletion does not promise immediate removal of provider metadata; see [FASHN retention](https://docs.fashn.ai/api-overview/data-retention-privacy).
+Personal inputs/results expire one hour after input upload. Access is revoked immediately at expiry/deletion/logout; queued personal work is cancelled, late results discarded, and cleanup retries locked file removal. Inputs/outputs use inline base64 so the local photo server is not exposed publicly. Local deletion does not promise removal of provider-held data; consult [Google's API terms](https://ai.google.dev/gemini-api/terms) or [FASHN retention](https://docs.fashn.ai/api-overview/data-retention-privacy). The shopper consent panel names the configured provider.
 
 Servers bind to loopback. Merchant access uses a local token and HttpOnly session; mutations require origin/CSRF checks. Private assets and personal jobs enforce session ownership. This is one local merchant workspace, not a publicly hosted multi-tenant system. No checkout, payments, inventory integration, email delivery or fit guarantees.
 

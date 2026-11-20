@@ -14,6 +14,7 @@ from test_pdf import pdf_bytes
 def fixture_app(tmp_path):
     return create_app(
         Settings(
+            _env_file=None,
             data_dir=tmp_path,
             merchant_token="test-merchant-token",
             generation_mode="fixture",
@@ -234,7 +235,10 @@ def test_expiration_denies_bytes_even_before_cleanup(fixture_client, fixture_app
 def test_live_missing_configuration_rejected(tmp_path):
     app = create_app(
         Settings(
-            data_dir=tmp_path, merchant_token="test-merchant-token", start_worker=False
+            _env_file=None,
+            data_dir=tmp_path,
+            merchant_token="test-merchant-token",
+            start_worker=False,
         )
     )
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:

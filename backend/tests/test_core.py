@@ -11,7 +11,10 @@ from PIL import Image
 def app(tmp_path):
     return create_app(
         Settings(
-            data_dir=tmp_path, merchant_token="test-merchant-token", start_worker=False
+            _env_file=None,
+            data_dir=tmp_path,
+            merchant_token="test-merchant-token",
+            start_worker=False,
         )
     )
 
