@@ -51,7 +51,7 @@ Self-hosted Urbanist is the interface face. The centered VYUMI wordmark uses Geo
 
 Desktop collection pages show four portrait columns; mobile shows two. Responsive changes occur at 700, 1000 and 1600 pixels. The merchant editor follows Details, Images, Generate, then Review & publish. The right-side shopper dialog becomes a narrow-screen full-width panel.
 
-Collection tabs separate Everyone, Women, Men and Unisex. A labelled garment-type selector filters the portrait grid independently. The outfit builder lists selected complementary pieces with remove controls; it allows one top, one bottom and a jacket, or a full outfit and a jacket. Personal previews keep original and result adjacent, with explicit review before download.
+Collection tabs separate Everyone, Women, Men and Unisex. A labelled garment-type selector filters the portrait grid independently. The outfit builder lists selected complementary pieces with remove controls; it allows one top, one bottom and a jacket, or a full outfit and a jacket. Personal previews keep original and result adjacent with direct download. Consent and one photo upload start generation automatically; extra outfit controls stay collapsed until needed.
 
 ## Elevation & Depth
 

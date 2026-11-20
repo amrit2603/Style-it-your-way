@@ -17,7 +17,13 @@ from .assets import (
 )
 from .catalog import check_version, load_product, save_draft
 from .config import now
-from .provider import CloudflareClient, FashnClient, GeminiClient, ProviderError
+from .provider import (
+    CloudflareClient,
+    FashnClient,
+    FashnDemoClient,
+    GeminiClient,
+    ProviderError,
+)
 from .security import fail
 
 TERMINAL = {"completed", "failed", "cancelled", "expired", "needs_review"}
@@ -57,6 +63,20 @@ class GenerationService:
         self.stop = threading.Event()
         self.thread = None
         self.tick_lock = threading.Lock()
+        self.dedicated = (
+            FashnDemoClient()
+            if settings.tryon_provider == "fashn_demo"
+            else FashnClient(settings.fashn_api_key)
+            if settings.tryon_provider == "fashn"
+            else None
+        )
+
+    def provider_for(self, operation):
+        return (
+            self.dedicated
+            if operation == "tryon" and self.dedicated is not None
+            else self.provider
+        )
 
     def remaining(self):
         with self.db.connect() as db:
@@ -100,7 +120,11 @@ class GenerationService:
                     429,
                 )
             if not self.settings.fixture and (
-                not self.settings.provider_configured
+                not (
+                    self.settings.tryon_configured
+                    if operation == "tryon"
+                    else self.settings.provider_configured
+                )
                 or self.settings.generation_allowance < 1
             ):
                 fail(
@@ -119,7 +143,9 @@ class GenerationService:
                 )
             get_asset(db, product["reference_id"])
             context = {
-                "provider": self.settings.provider_name,
+                "provider": self.settings.tryon_name
+                if operation == "tryon"
+                else self.settings.provider_name,
                 "garments": [
                     {
                         "product_id": product_id,
@@ -137,7 +163,10 @@ class GenerationService:
                     fail("duplicate_garment", "Choose each garment only once.")
                 if payload.additional_product_ids and not (
                     self.settings.fixture
-                    or isinstance(self.provider, (CloudflareClient, GeminiClient))
+                    or isinstance(
+                        self.provider_for(operation),
+                        (CloudflareClient, GeminiClient, FashnDemoClient),
+                    )
                 ):
                     fail(
                         "outfit_unavailable",
@@ -367,6 +396,7 @@ class GenerationService:
                 )
                 return
             try:
+                provider = self.provider_for(job["operation"])
                 if job["fixture"]:
                     if job["status"] == "queued":
                         with self.db.connect(write=True) as db:
@@ -379,9 +409,10 @@ class GenerationService:
                     return
                 if job["status"] == "queued":
                     context = json.loads(job["context"])
-                    if (
-                        context.get("provider", self.settings.provider_name)
-                        != self.settings.provider_name
+                    if context.get("provider", self.settings.provider_name) != (
+                        self.settings.tryon_name
+                        if job["operation"] == "tryon"
+                        else self.settings.provider_name
                     ):
                         raise ProviderError(
                             "provider_changed",
@@ -413,6 +444,9 @@ class GenerationService:
                     }
                     if job["operation"] == "tryon":
                         inputs["model_image"] = self._data_uri(person_data)
+                        inputs["garment_categories"] = [
+                            g["category"] for g in context.get("garments", [])
+                        ]
                         if extra_data:
                             inputs["additional_images"] = [
                                 self._data_uri(data) for data in extra_data
@@ -425,8 +459,10 @@ class GenerationService:
                                 "aspect_ratio": "2:3",
                             }
                         )
-                    if isinstance(self.provider, (GeminiClient, CloudflareClient)):
-                        image = self.provider.generate(inputs)
+                    if isinstance(
+                        provider, (GeminiClient, CloudflareClient, FashnDemoClient)
+                    ):
+                        image = provider.generate(inputs)
                         with self.db.connect(write=True) as db:
                             db.execute(
                                 "UPDATE jobs SET status='processing',updated=? WHERE id=? AND status='submitting'",
@@ -434,7 +470,7 @@ class GenerationService:
                             )
                         self._finish(job, image)
                         return
-                    prediction_id = self.provider.submit(
+                    prediction_id = provider.submit(
                         "tryon-max" if person_data else "product-to-model", inputs
                     )
                     with self.db.connect(write=True) as db:
@@ -443,7 +479,7 @@ class GenerationService:
                             (prediction_id, now(), job["id"]),
                         )
                 else:
-                    result = self.provider.status(job["prediction_id"])
+                    result = provider.status(job["prediction_id"])
                     if result["status"] == "completed":
                         self._finish(job, result["image"])
             except ProviderError as error:

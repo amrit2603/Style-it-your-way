@@ -90,9 +90,9 @@ function Catalog() {
             ) : (
               <>
                 <span
-                  className={`status-dot ${health.provider_ready ? "ready" : ""}`}
+                  className={`status-dot ${(health.catalog_ready ?? health.provider_ready) ? "ready" : ""}`}
                 />
-                {health.provider_ready
+                {(health.catalog_ready ?? health.provider_ready)
                   ? `${health.remaining_allowance} generation requests remaining`
                   : "Live generation not configured"}
                 <span className="status-separator" />

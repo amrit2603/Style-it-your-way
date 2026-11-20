@@ -14,7 +14,7 @@ Shopkeepers prepare product catalogs; shoppers browse garments and preview them 
 Convert garment photos or selected PDF catalog regions into reviewed catalog images, then offer private product-specific visual try-on.
 
 ## Capabilities and Constraints
-Photo and PDF input; men's, women's and unisex collections; ten garment categories; up to three complementary outfit pieces; draft/review/publish workflow; guided try-on drawer; private one-hour photo lifetime; backend Cloudflare, Gemini or FASHN integration; no checkout or fit guarantees. Cloudflare personal try-on is experimental: live tests exposed face drift and failed clothing replacement. User approved the design and delegated implementation without repeated approval prompts.
+Photo and PDF input; men's, women's and unisex collections; ten garment categories; up to three complementary outfit pieces; draft/review/publish workflow; guided try-on drawer; private one-hour photo lifetime; backend Cloudflare, Gemini or FASHN integration; dedicated FASHN public-demo personal try-on; no checkout or fit guarantees. Consented photo upload starts generation automatically. Shared GPU availability is limited and real-person accuracy is unbenchmarked. User approved the design and delegated implementation without repeated approval prompts.
 
 ## Brand Commitments
 VYUMI identity. Follow the supplied Panna storefront recording: portrait garment photography, compact white header, four-column desktop catalog, gold actions and a right-side chat drawer. Use original or licensed imagery, not Panna assets.

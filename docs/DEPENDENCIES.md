@@ -8,6 +8,7 @@ Versions are pinned in the backend/frontend manifests and lockfiles. This build 
 | Uvicorn | Loopback server | BSD-3-Clause; [project](https://github.com/Kludex/uvicorn) |
 | Pydantic / settings | Input/environment validation | MIT; [project](https://github.com/pydantic/pydantic) |
 | HTTPX | Fixed-origin image provider calls | BSD-3-Clause; [project](https://github.com/encode/httpx) |
+| pillow-heif | Phone HEIF/AVIF decoding | BSD-3-Clause wrapper; bundled libheif/codecs have separate notices; [project](https://github.com/bigcat88/pillow_heif) |
 | Pillow | Bounded image decoding/normalization | HPND; [project](https://github.com/python-pillow/Pillow) |
 | pypdfium2 / PDFium | Native PDF rendering | Wrapper Apache-2.0/BSD-3-Clause; bundled dependencies have separate notices; [licensing](https://github.com/pypdfium2-team/pypdfium2#licensing) |
 | MediaPipe | Local person/pose checks | Apache-2.0 software; [license](https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE) |
@@ -16,8 +17,10 @@ Versions are pinned in the backend/frontend manifests and lockfiles. This build 
 | Playwright | Browser acceptance tests | Apache-2.0; [project](https://github.com/microsoft/playwright) |
 | Urbanist | Self-hosted UI font | SIL OFL, included at `frontend/public/fonts/OFL.txt`; [source](https://github.com/google/fonts/tree/main/ofl/urbanist) |
 
-The model helper downloads versioned official Google EfficientDet-Lite0 int8 and Pose Landmarker Lite float16 files and records their SHA-256/size/source in `models/manifest.json`. Models are not downloaded during an upload. See official [object detector](https://developers.google.com/edge/mediapipe/solutions/vision/object_detector) and [pose](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker) docs and the [BlazePose model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf).
+The model helper downloads versioned official Google EfficientDet-Lite0 int8 and Pose Landmarker Lite float16 and BlazeFace short-range files and records their SHA-256/size/source in `models/manifest.json`. Models are not downloaded during an upload. See official [object detector](https://developers.google.com/edge/mediapipe/solutions/vision/object_detector) and [pose](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker) docs and the [BlazePose model card](https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf).
 
 Checkpoint provenance is separate from software licensing. Exact checkpoint/dataset rights have not been cleared for commercial distribution; this remains a local internal prototype. Include upstream notices when distributing PDFium or other binaries. No Panna catalog/trademark assets were bundled.
 
 FASHN is a paid hosted service under its current terms, not a distributed checkpoint. No CatVTON/IDM-VTON model was installed. ReportLab from the bundled authoring runtime generated the static demonstration PDF; it is not a required application dependency.
+
+Personal try-on can use the official [FASHN VTON 1.5 public demo](https://huggingface.co/spaces/fashn-ai/fashn-vton-1.5). The app calls its public Gradio upload/event API on one fixed HTTPS origin; no model checkpoint is bundled. This is a shared demo with GPU quota, not a production service agreement. A separate ignored CPU evaluation environment in models/fashn-vton is not an application dependency.

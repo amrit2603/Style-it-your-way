@@ -4,14 +4,14 @@ A local Next.js + FastAPI prototype with two connected workflows:
 
 Collections now separate **Women, Men and Unisex**, with sarees, suits/sets, shirts, tops/T-shirts, trousers/jeans, skirts, dresses, kurtas, jackets/blazers and lehengas. Merchants set the collection/category and choose adult model presentation and studio/daylight/outdoor settings. Shoppers can combine up to three complementary garments: a top, bottom and jacket, or a full outfit and jacket. Conflicting layers are rejected by the server.
 
-**Personal try-on quality is experimental on Cloudflare.** Live tests produced distinct images but exposed face drift, layering errors and retention of the original outfit. The app shows original/result together, offers rejection, and requires face/garment confirmation before downloading live results. These controls are manual review, not automatic identity verification. See [live evaluation evidence](docs/IDENTITY_EVALUATION.md). Catalog shoots were successful; dependable real-person try-on still needs a dedicated provider and a representative benchmark.
+**Personal try-on now uses the dedicated FASHN VTON 1.5 model through its official public GPU demo.** Choose a garment, consent and upload a photo: generation starts automatically. Original and result appear together with direct download. Two live uploads of different fictional adult people completed and were visually inspected. See [evaluation evidence](docs/IDENTITY_EVALUATION.md). The shared demo has quota/capacity limits; production reliability and representative real-person accuracy remain unverified.
 
 - **Merchant studio:** upload garment photos or a PDF catalog, select garment regions, enter product details, generate model-wearing catalog previews, review and publish.
 - **Shopper storefront:** browse published garments, choose one, upload a personal photo with consent, generate a private try-on, compare, download, retry and delete.
 
 The storefront follows the supplied Panna reference: portrait catalog grid, compact white header, gold actions and a chat drawer. Merchant preparation follows Details → Images → Generate → Review & publish.
 
-**Real generation supports Cloudflare Workers AI, Gemini and FASHN.** Cloudflare catalog shoots have completed live. Personal try-on remains experimental: live tests exposed face drift and failed clothing replacement; see [evaluation](docs/IDENTITY_EVALUATION.md). Cloudflare credentials take precedence, then Gemini, then FASHN; partial Cloudflare credentials disable generation. Demo mode returns a labelled fixed sample, not a personalized result.
+**Catalog generation supports Cloudflare Workers AI, Gemini and paid FASHN.** Personal generation is independently configured with `VYUMI_TRYON_PROVIDER=fashn_demo` (official public GPU demo, no API key), `fashn` (paid key required), or `primary` (use the catalog provider). Catalog credentials take precedence Cloudflare, then Gemini, then paid FASHN. Demo mode returns a labelled fixed sample, not a personalized result.
 
 ## Run the local demonstration
 
@@ -34,6 +34,7 @@ Keep the terminal open; Ctrl+C stops the servers owned by that script. Ports 300
 For Cloudflare Workers AI, open [Cloudflare Dashboard](https://dash.cloudflare.com/) → Workers AI → Use REST API. Copy Account ID and create a Workers AI API token using the provided template. Put these values in the private `backend/.env` file:
 
 ```env
+VYUMI_TRYON_PROVIDER=fashn_demo
 VYUMI_CLOUDFLARE_ACCOUNT_ID=your_account_id
 VYUMI_CLOUDFLARE_API_TOKEN=your_workers_ai_token
 ```
@@ -67,17 +68,17 @@ FASHN models remain [`product-to-model`](https://docs.fashn.ai/api-reference/pro
 
 ## Inputs and outputs
 
-Photos: JPEG/PNG/WebP, at most 10 MiB and 25 megapixels, at least 512 px on the shorter side. Orientation is normalized and unnecessary metadata removed. Products retain up to ten original main/reverse/detail references.
+Photos: JPEG/PNG/WebP/HEIC/HEIF/AVIF, at most 10 MiB and 25 megapixels. Personal photos need at least 128 px on the shorter side; merchant references need 512 px. Orientation is normalized and unnecessary metadata removed. Products retain up to ten original main/reverse/detail references.
 
 PDFs: at most 30 MiB and 50 pages. Encrypted/unreadable PDFs are rejected. Preview pages, crop one garment or use the whole page, then manually confirm product metadata. Numeric crop controls support keyboard use. Source PDF/page/crop provenance stays attached. There is no automatic bulk matching, OCR or spreadsheet import.
 
-Personal photos need adult/processing consent, one detectable person, suitable framing/pose, lighting and detail. MediaPipe runs locally; uncertain images and missing validators fail with guidance. Checks are heuristics, not age verification or guaranteed pose recognition. Optional height/size values are informational, not fit controls.
+Personal photos need adult/processing consent and one detectable person or face. MediaPipe runs locally; lighting and framing issues become advice when one person is detected. Group/non-person images and missing validators are rejected. Checks are heuristics, not age verification. Height and size entry is removed from the upload flow; the preview does not measure physical fit.
 
 Catalog images need explicit review before publication. Original references start private and appear publicly only if separately selected. Source changes create a new draft while preserving the previous public snapshot; replacement outputs need fresh approval. Personal results are session-private and downloadable before expiry. Job status reflects actual server state.
 
 ## Privacy and scope
 
-Personal inputs/results expire one hour after input upload. Access is revoked immediately at expiry/deletion/logout; queued personal work is cancelled, late results discarded, and cleanup retries locked file removal. Inputs/outputs use inline data so the local photo server is not exposed publicly. Local deletion does not promise removal of provider-held data; consult [Cloudflare data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Google's API terms](https://ai.google.dev/gemini-api/terms) or [FASHN retention](https://docs.fashn.ai/api-overview/data-retention-privacy). The shopper consent panel names the configured provider.
+Personal inputs/results expire one hour after input upload. Access is revoked immediately at expiry/deletion/logout; queued personal work is cancelled, late results discarded, and cleanup retries locked file removal. The dedicated demo receives uploaded person and garment files; other adapters use inline data. The local photo server is not exposed publicly. When using the shared demo, consult [Hugging Face privacy](https://huggingface.co/privacy) and the [official FASHN demo](https://huggingface.co/spaces/fashn-ai/fashn-vton-1.5); local expiry does not control the external host's retention. Local deletion does not promise removal of provider-held data; consult [Cloudflare data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Google's API terms](https://ai.google.dev/gemini-api/terms) or [FASHN retention](https://docs.fashn.ai/api-overview/data-retention-privacy). The shopper consent panel names the configured provider.
 
 Servers bind to loopback. Merchant access uses a local token and HttpOnly session; mutations require origin/CSRF checks. Private assets and personal jobs enforce session ownership. This is one local merchant workspace, not a publicly hosted multi-tenant system. No checkout, payments, inventory integration, email delivery or fit guarantees.
 
@@ -106,4 +107,4 @@ If generation is disabled, check the backend key/allowance and restart live mode
 
 AI may change color, embroidery, borders, drape, identity or anatomy. Merchant review is mandatory; a representative saree/suit benchmark is still needed before real customer use. Use consented adult photos and licensed garment sources. No measured fidelity or physical fit accuracy is claimed.
 
-Collections support Women, Men and Unisex, with ten garment categories. Personal outfits allow up to three complementary pieces (top, bottom and optional jacket; or full outfit and optional jacket). Merchant catalog shoots offer model presentation and scene controls. Live personal downloads require user face/garment confirmation; this is manual review, not automatic identity verification.
+Collections support Women, Men and Unisex, with ten garment categories. Personal outfits allow up to three complementary pieces (top, bottom and optional jacket; or full outfit and optional jacket). Merchant catalog shoots offer model presentation and scene controls. Personal upload starts generation automatically. Optional outfit controls are collapsed; direct download follows completion. Compare the face and garment before using a result.

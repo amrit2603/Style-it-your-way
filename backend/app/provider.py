@@ -2,9 +2,147 @@ import base64
 import io
 import json
 import re
+import time
 
 import httpx
 from PIL import Image
+
+
+class FashnDemoClient:
+    """Official public GPU demo. Availability is subject to its shared quota."""
+
+    ORIGIN = "https://fashn-ai-fashn-vton-1-5.hf.space"
+
+    @staticmethod
+    def _photo_type(raw):
+        from .photo_checks import _infer
+
+        with Image.open(io.BytesIO(raw)) as source:
+            image = source.convert("RGB")
+            image.thumbnail((1280, 1280))
+        try:
+            people, _ = _infer(image)
+            return "model" if people else "flat-lay"
+        except Exception:
+            return "model"
+
+    def generate(self, inputs):
+        person = base64.b64decode(inputs["model_image"].split(",", 1)[1], validate=True)
+        garments = [inputs["product_image"], *inputs.get("additional_images", [])]
+        categories = inputs.get("garment_categories") or ["suit"] * len(garments)
+        try:
+            with httpx.Client(
+                timeout=httpx.Timeout(180, connect=20), follow_redirects=False
+            ) as client:
+                for index, garment in enumerate(garments):
+                    raw = base64.b64decode(garment.split(",", 1)[1], validate=True)
+                    response = client.post(
+                        self.ORIGIN + "/gradio_api/upload",
+                        files=[
+                            ("files", ("person.jpg", person, "image/jpeg")),
+                            ("files", ("garment.jpg", raw, "image/jpeg")),
+                        ],
+                    )
+                    response.raise_for_status()
+                    paths = response.json()
+                    if (
+                        not isinstance(paths, list)
+                        or len(paths) != 2
+                        or any(
+                            not isinstance(path, str)
+                            or not path.startswith("/tmp/gradio/")
+                            for path in paths
+                        )
+                    ):
+                        raise ValueError("Unexpected upload response")
+                    category = (
+                        "bottoms"
+                        if categories[index] in {"trousers", "skirt"}
+                        else "one-pieces"
+                        if categories[index] in {"saree", "suit", "dress", "lehenga"}
+                        else "tops"
+                    )
+                    response = client.post(
+                        self.ORIGIN + "/gradio_api/call/try_on",
+                        json={
+                            "data": [
+                                *[
+                                    {"path": path, "meta": {"_type": "gradio.FileData"}}
+                                    for path in paths
+                                ],
+                                category,
+                                self._photo_type(raw),
+                                30,
+                                1.5,
+                                42,
+                                True,
+                            ]
+                        },
+                    )
+                    response.raise_for_status()
+                    event_id = response.json()["event_id"]
+                    if not isinstance(event_id, str) or not re.fullmatch(
+                        r"[a-fA-F0-9]{32}", event_id
+                    ):
+                        raise ValueError("Invalid event ID")
+                    output_url, event, size = None, "", 0
+                    deadline = time.monotonic() + 180
+                    with client.stream(
+                        "GET", self.ORIGIN + "/gradio_api/call/try_on/" + event_id
+                    ) as stream:
+                        stream.raise_for_status()
+                        for line in stream.iter_lines():
+                            if time.monotonic() > deadline:
+                                raise ProviderError(
+                                    "tryon_busy",
+                                    "The try-on service is taking too long. Please try again later.",
+                                )
+                            size += len(line)
+                            if size > 128 * 1024:
+                                raise ValueError("Oversized event response")
+                            if line.startswith("event:"):
+                                event = line[6:].strip()
+                            elif line.startswith("data:") and event in {
+                                "complete",
+                                "error",
+                            }:
+                                if event == "error":
+                                    raise ProviderError(
+                                        "tryon_busy",
+                                        "The try-on GPU is busy or its free quota is used. Please try again later.",
+                                    )
+                                output_url = json.loads(line[5:])[0]["url"]
+                                break
+                    if not isinstance(output_url, str) or not re.fullmatch(
+                        re.escape(self.ORIGIN)
+                        + r"/gradio_api/file=/tmp/gradio/[a-f0-9]{64}/image\.(?:webp|png|jpg|jpeg)",
+                        output_url,
+                    ):
+                        raise ValueError("Unexpected output location")
+                    content = bytearray()
+                    with client.stream("GET", output_url) as stream:
+                        stream.raise_for_status()
+                        for chunk in stream.iter_bytes():
+                            content.extend(chunk)
+                            if len(content) > 10 * 1024 * 1024:
+                                raise ValueError("Oversized image")
+                    person = bytes(content)
+            return person
+        except ProviderError:
+            raise
+        except (
+            httpx.HTTPError,
+            ValueError,
+            TypeError,
+            KeyError,
+            IndexError,
+            AttributeError,
+        ):
+            raise ProviderError(
+                "tryon_unavailable",
+                "The dedicated try-on service did not complete this request. Please try again later.",
+                ambiguous=True,
+            ) from None
 
 
 class CloudflareClient:

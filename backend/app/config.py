@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
     cloudflare_account_id: str = ""
     cloudflare_api_token: str = ""
     cloudflare_model: str = "@cf/black-forest-labs/flux-2-klein-9b"
+    tryon_provider: Literal["primary", "fashn_demo", "fashn"] = "primary"
     generation_allowance: int = Field(default=0, ge=0, le=1000)
     generation_mode: str = "live"
     start_worker: bool = True
@@ -44,6 +46,22 @@ class Settings(BaseSettings):
         if self.cloudflare_account_id or self.cloudflare_api_token:
             return "Cloudflare"
         return "Gemini" if self.gemini_api_key else "FASHN"
+
+    @property
+    def tryon_name(self):
+        return {"fashn_demo": "FASHN demo", "fashn": "FASHN"}.get(
+            self.tryon_provider, self.provider_name
+        )
+
+    @property
+    def tryon_configured(self):
+        if self.tryon_provider == "fashn_demo":
+            return True
+        return (
+            bool(self.fashn_api_key)
+            if self.tryon_provider == "fashn"
+            else self.provider_configured
+        )
 
 
 def now():

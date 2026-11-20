@@ -618,7 +618,7 @@ function Editor({ id }: { id: string }) {
                     busy ||
                     processing ||
                     !product.reference_id ||
-                    !health?.provider_ready
+                    !(health?.catalog_ready ?? health?.provider_ready)
                   }
                   onClick={() =>
                     action(async () => {
@@ -647,7 +647,7 @@ function Editor({ id }: { id: string }) {
                       : "Generate catalog preview"}
                   <Icon name="spark" />
                 </button>
-                {!health?.provider_ready && (
+                {!(health?.catalog_ready ?? health?.provider_ready) && (
                   <p className="notice">
                     Live generation needs backend provider credentials and a
                     positive generation allowance. Configure these locally, then

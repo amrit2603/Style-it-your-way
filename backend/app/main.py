@@ -20,7 +20,8 @@ from .config import Settings, now
 from .db import Database
 from .generation import GenerationService, job_response
 from .pdf import PdfError, inspect_pdf, render_pdf_page
-from .photo_checks import check_person, validator_ready
+from .photo_checks import check_upload as check_person
+from .photo_checks import validator_ready
 from .schemas import (
     CatalogGenerate,
     CropInput,
@@ -177,10 +178,13 @@ def create_app(settings=None):
         return {
             "status": "ok",
             "provider_ready": settings.fixture
+            or bool(settings.tryon_configured and generation.remaining() > 0),
+            "catalog_ready": settings.fixture
             or bool(settings.provider_configured and generation.remaining() > 0),
             "validator_ready": validator_ready(),
             "generation_mode": settings.generation_mode,
-            "provider": settings.provider_name,
+            "provider": settings.tryon_name,
+            "catalog_provider": settings.provider_name,
             "remaining_allowance": generation.remaining(),
         }
 
@@ -470,7 +474,14 @@ def create_app(settings=None):
                 "height_invalid",
                 "Enter a height between 80 and 250 cm, or leave it blank.",
             )
-        image = assets.decode_image(await assets.read_upload(file, assets.MAX_PHOTO))
+        image = assets.decode_image(
+            await assets.read_upload(file, assets.MAX_PHOTO), minimum=False
+        )
+        if min(image.size) < 128:
+            fail(
+                "photo_too_small",
+                "Choose a photo at least 128 pixels on its shorter side.",
+            )
         if settings.fixture:
             checks = {
                 "accepted": True,

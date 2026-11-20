@@ -4,12 +4,14 @@ import uuid
 import warnings
 
 from PIL import Image, ImageOps, UnidentifiedImageError
+from pillow_heif import register_heif_opener
 
 from .config import now
 from .security import fail
 
 MAX_PHOTO = 10 * 1024 * 1024
 Image.MAX_IMAGE_PIXELS = 25_000_000
+register_heif_opener()
 
 
 def decode_image(content: bytes, *, minimum=True):
@@ -19,8 +21,10 @@ def decode_image(content: bytes, *, minimum=True):
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(content)) as source:
-                if source.format not in {"JPEG", "PNG", "WEBP"}:
-                    fail("image_format", "Upload a JPEG, PNG or WebP photo.")
+                if source.format not in {"JPEG", "PNG", "WEBP", "HEIF", "AVIF"}:
+                    fail(
+                        "image_format", "Upload a JPEG, PNG, WebP, HEIC or AVIF photo."
+                    )
                 if getattr(source, "n_frames", 1) != 1:
                     fail(
                         "image_animated",

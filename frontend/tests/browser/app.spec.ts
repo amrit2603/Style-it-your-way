@@ -25,7 +25,7 @@ test("shopper photo consent, fixture result, reload and delete", async ({
   await page.locator(".product-card").first().getByRole("button").click();
   const dialog = page.getByRole("dialog");
   await expect(
-    dialog.getByRole("button", { name: "Choose your photo" }),
+    dialog.getByRole("button", { name: "Upload photo & try on" }),
   ).toBeDisabled();
   await dialog.getByRole("checkbox").check();
   await dialog
@@ -34,9 +34,6 @@ test("shopper photo consent, fixture result, reload and delete", async ({
   await expect(
     dialog.getByText("Your photo is ready", { exact: true }),
   ).toBeVisible();
-  await dialog
-    .getByRole("button", { name: "Generate my look", exact: true })
-    .click();
   await expect(
     dialog.getByRole("heading", { name: "Demonstration result" }),
   ).toBeVisible();
@@ -58,7 +55,7 @@ test("shopper photo consent, fixture result, reload and delete", async ({
     .getByRole("button", { name: "Delete my photo & results", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: /Choose your photo/ }),
+    page.getByRole("button", { name: /Upload photo & try on/ }),
   ).toBeVisible();
   const revoked = await page.request.get(resultSrc!);
   expect(revoked.status()).toBe(404);
@@ -259,12 +256,6 @@ test("lost shopper response reuses the existing job and keyboard stays in modal"
     ).toBeTruthy();
   }
   await dialog.getByRole("checkbox").check();
-  await dialog
-    .getByLabel("Upload your photo", { exact: true })
-    .setInputFiles(garment);
-  await expect(
-    dialog.getByText("Your photo is ready", { exact: true }),
-  ).toBeVisible();
   let dropped = false;
   const keys: string[] = [],
     jobs: string[] = [];
@@ -278,8 +269,11 @@ test("lost shopper response reuses the existing job and keyboard stays in modal"
     } else await route.fulfill({ response });
   });
   await dialog
-    .getByRole("button", { name: "Generate my look", exact: true })
-    .click();
+    .getByLabel("Upload your photo", { exact: true })
+    .setInputFiles(garment);
+  await expect(
+    dialog.getByText("Your photo is ready", { exact: true }),
+  ).toBeVisible();
   await expect(dialog.getByRole("alert")).toBeVisible();
   await dialog
     .getByRole("button", { name: "Resume my request", exact: true })
@@ -299,12 +293,6 @@ test("shopper recovers an existing request after reload with no remaining allowa
   await page.locator(".product-card").first().getByRole("button").click();
   let dialog = page.getByRole("dialog");
   await dialog.getByRole("checkbox").check();
-  await dialog
-    .getByLabel("Upload your photo", { exact: true })
-    .setInputFiles(garment);
-  await expect(
-    dialog.getByText("Your photo is ready", { exact: true }),
-  ).toBeVisible();
   let first = true;
   const ids: string[] = [];
   await page.route("**/api/style-it/generate", async (route) => {
@@ -316,8 +304,11 @@ test("shopper recovers an existing request after reload with no remaining allowa
     } else await route.fulfill({ response });
   });
   await dialog
-    .getByRole("button", { name: "Generate my look", exact: true })
-    .click();
+    .getByLabel("Upload your photo", { exact: true })
+    .setInputFiles(garment);
+  await expect(
+    dialog.getByText("Your photo is ready", { exact: true }),
+  ).toBeVisible();
   await expect(dialog.getByRole("alert")).toBeVisible();
   await page.route("**/api/health", async (route) => {
     const response = await route.fetch();
@@ -435,12 +426,18 @@ test("men and women collections, garment types and outfit builder", async ({
   await page.locator(".product-card button").click();
   const dialog = page.getByRole("dialog");
   await dialog
+    .getByText("Change garment or add outfit pieces", { exact: true })
+    .click();
+  await dialog
     .getByLabel("Add another piece", { exact: true })
     .selectOption(pieces[1]);
   await dialog
     .getByLabel("Add another piece", { exact: true })
     .selectOption(pieces[2]);
   await expect(dialog.locator(".outfit-piece")).toHaveCount(2);
+  const submission = page.waitForRequest(
+    (r) => r.url().endsWith("/api/style-it/generate") && r.method() === "POST",
+  );
   await dialog.getByRole("checkbox").check();
   await dialog
     .getByLabel("Upload your photo", { exact: true })
@@ -448,12 +445,6 @@ test("men and women collections, garment types and outfit builder", async ({
   await expect(
     dialog.getByText("Your photo is ready", { exact: true }),
   ).toBeVisible();
-  const submission = page.waitForRequest(
-    (r) => r.url().endsWith("/api/style-it/generate") && r.method() === "POST",
-  );
-  await dialog
-    .getByRole("button", { name: "Generate my look", exact: true })
-    .click();
   expect((await submission).postDataJSON().additional_product_ids).toEqual([
     pieces[1],
     pieces[2],

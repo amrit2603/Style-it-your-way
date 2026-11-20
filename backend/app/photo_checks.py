@@ -11,6 +11,65 @@ MODELS = Path(__file__).resolve().parents[2] / "models"
 LOCK = threading.Lock()
 
 
+@lru_cache(maxsize=1)
+def _face_detector():
+    from mediapipe.tasks import python
+    from mediapipe.tasks.python import vision
+
+    return vision.FaceDetector.create_from_options(
+        vision.FaceDetectorOptions(
+            base_options=python.BaseOptions(
+                model_asset_path=str(MODELS / "blaze_face_short_range.tflite")
+            ),
+            min_detection_confidence=0.5,
+        )
+    )
+
+
+def _face_count(image):
+    import mediapipe as mp
+
+    resized = image.copy()
+    resized.thumbnail((1024, 1024))
+    with LOCK:
+        frame = mp.Image(
+            image_format=mp.ImageFormat.SRGB, data=np.asarray(resized, dtype=np.uint8)
+        )
+        return len(_face_detector().detect(frame).detections)
+
+
+def check_upload(image: Image.Image) -> dict:
+    """Accept a single-person photo; framing and lighting are advice, not gates."""
+    result = check_person(image)
+    if result.get("people", 0) > 1:
+        return result
+    if result["accepted"] or result["code"].startswith("validator_"):
+        return result
+    try:
+        faces = _face_count(image)
+    except Exception:
+        faces = 0
+    if faces > 1:
+        return {
+            "accepted": False,
+            "code": "photo_people",
+            "message": "Choose a photo with just you in it.",
+        }
+    if faces == 1 or result["code"] in {
+        "photo_framing",
+        "photo_face",
+        "photo_angle",
+        "photo_pose",
+    }:
+        return {
+            "accepted": True,
+            "code": "photo_advice",
+            "message": "Photo uploaded. A clear body photo gives a better clothing preview.",
+            "advice": result["message"],
+        }
+    return result
+
+
 def validator_ready():
     return all(
         (MODELS / name).is_file()
@@ -91,14 +150,21 @@ def check_person(image: Image.Image) -> dict:
             "Photo validation could not run. Check local model setup and try again.",
         )
     if len(people) != 1:
-        return rejected(
-            "photo_people", "Upload a clear photo with exactly one person in the frame."
-        )
+        return {
+            **rejected(
+                "photo_people",
+                "Upload a clear photo with exactly one person in the frame.",
+            ),
+            "people": len(people),
+        }
     if len(poses) != 1:
-        return rejected(
-            "photo_pose",
-            "Use a clear front-facing or slight-angle photo with your shoulders and hips visible.",
-        )
+        return {
+            **rejected(
+                "photo_pose",
+                "Use a clear front-facing or slight-angle photo with your shoulders and hips visible.",
+            ),
+            "people": len(poses),
+        }
     landmarks = poses[0]
     if any(
         min(landmarks[index].visibility, landmarks[index].presence) < 0.6

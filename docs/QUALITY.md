@@ -1,5 +1,9 @@
 # Verification and remaining evaluation
 
+Latest upload simplification verification (20 November 2026): **99 backend tests passed**, **8 Chromium acceptance scenarios passed**, Ruff passed and the production build/TypeScript check passed. A duplicated readiness test definition was removed after lint detected it; the focused nine-test dedicated-provider suite passed again. Two actual storefront uploads using different fictional adult sample photos each started one dedicated FASHN VTON job automatically, completed and offered a downloadable result. Outputs were visually inspected for distinct faces, retained pose/background and changed clothing. Both live readiness flags are true and the running storefront returns HTTP 200. This supersedes the old Cloudflare-only personal route described below.
+
+The simplified drawer keeps consent, private ownership, deletion, expiry, keyboard focus and response-loss recovery. Phone HEIC/AVIF and small portraits are covered by tests; strict group/non-person rejection remains. Lighting/framing advice no longer blocks a detectable single person. No live male-person, multi-piece or diverse real-person accuracy evaluation was performed; shared public-demo GPU quota and external retention remain limitations. No physical-fit or perfect-identity claim is made.
+
 20 November 2026. Application behavior and AI output quality are separate checks.
 
 Final local verification: **53 backend tests passed**, **7 Chromium acceptance scenarios passed**, Ruff passed and the Next.js production build/TypeScript check passed. The startup script was also exercised in demo mode: backend health returned OK and the storefront returned HTTP 200. Independent code review confirmed all seven reported findings resolved; independent UI review accepted the reviewed desktop/mobile scope.
