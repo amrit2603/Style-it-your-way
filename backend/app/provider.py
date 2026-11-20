@@ -67,6 +67,21 @@ class CloudflareClient:
                             )
                     if response.status_code >= 400:
                         message = "Cloudflare rejected image generation. Check the Account ID, Workers AI token permissions and model access."
+                        if response.status_code in {400, 401, 403}:
+                            try:
+                                errors = json.loads(content).get("errors", [])
+                                bad_header = any(
+                                    detail.get("code") == 6111
+                                    for error in errors
+                                    for detail in [error, *error.get("error_chain", [])]
+                                )
+                            except (ValueError, TypeError, AttributeError):
+                                bad_header = False
+                            if bad_header:
+                                raise ProviderError(
+                                    "cloudflare_token_format",
+                                    "Cloudflare rejected the token format. Paste only the full Workers AI API token into VYUMI_CLOUDFLARE_API_TOKEN, save, and restart the backend. Do not include a curl command or Authorization header.",
+                                )
                         if response.status_code == 429:
                             message = "Cloudflare's quota or capacity is unavailable. Check Workers AI usage and retry later."
                         raise ProviderError(

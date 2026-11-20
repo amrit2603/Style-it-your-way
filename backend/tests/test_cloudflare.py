@@ -98,3 +98,36 @@ def test_invalid_cloudflare_account_id_does_not_make_request(monkeypatch):
     )
     with pytest.raises(ProviderError, match="Account ID"):
         CloudflareClient("../invalid", "private-test-token").generate({})
+
+
+def test_cloudflare_bad_token_format_has_actionable_private_error(monkeypatch):
+    transport(
+        monkeypatch,
+        lambda request: httpx.Response(
+            400,
+            json={
+                "errors": [
+                    {
+                        "code": 6003,
+                        "error_chain": [
+                            {
+                                "code": 6111,
+                                "message": "Invalid format for Authorization header",
+                            }
+                        ],
+                    }
+                ]
+            },
+        ),
+    )
+    with pytest.raises(ProviderError) as error:
+        CloudflareClient("a" * 32, "private-test-token").generate(
+            {
+                "product_image": "data:image/png;base64,"
+                + base64.b64encode(photo()).decode()
+            }
+        )
+    assert error.value.code == "cloudflare_token_format"
+    assert "VYUMI_CLOUDFLARE_API_TOKEN" in error.value.message
+    assert "private-test-token" not in error.value.message
+    assert error.value.ambiguous is False
