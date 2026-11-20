@@ -36,7 +36,7 @@ export type Job = {
 export type Health = {
   status: string;
   provider_ready: boolean;
-  provider?: "Gemini" | "FASHN";
+  provider?: "Cloudflare" | "Gemini" | "FASHN";
   validator_ready: boolean;
   generation_mode: "live" | "fixture";
   remaining_allowance: number;

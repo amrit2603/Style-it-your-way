@@ -578,7 +578,7 @@ function Editor({ id }: { id: string }) {
                 </button>
                 {!health?.provider_ready && (
                   <p className="notice">
-                    Live generation needs a backend Gemini or FASHN key and a
+                    Live generation needs backend provider credentials and a
                     positive generation allowance. Configure these locally, then
                     reload.
                   </p>

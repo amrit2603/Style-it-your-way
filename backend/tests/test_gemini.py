@@ -4,7 +4,7 @@ import uuid
 
 import httpx
 import pytest
-from app.provider import GeminiClient, ProviderError
+from app.provider import CloudflareClient, GeminiClient, ProviderError
 from test_core import photo, session
 from test_lifecycle import fixture_app as fixture_app
 from test_lifecycle import fixture_client as fixture_client
@@ -88,8 +88,9 @@ def test_gemini_errors_do_not_retry(monkeypatch, status, body, code, ambiguous):
     assert len(calls) == 1 and "test-key" not in str(error.value)
 
 
-def test_gemini_worker_completes_and_replays_without_second_call(
-    fixture_app, fixture_client, monkeypatch
+@pytest.mark.parametrize("name", ["Gemini", "Cloudflare"])
+def test_synchronous_worker_completes_and_replays_without_second_call(
+    fixture_app, fixture_client, monkeypatch, name
 ):
     headers = session(fixture_client, True)
     item = ready_draft(fixture_client, headers)
@@ -97,7 +98,14 @@ def test_gemini_worker_completes_and_replays_without_second_call(
     settings.generation_mode = "live"
     settings.gemini_api_key = "test-key"
     settings.generation_allowance = 1
-    provider = GeminiClient("test-key", settings.gemini_model)
+    if name == "Cloudflare":
+        settings.cloudflare_account_id = "a" * 32
+        settings.cloudflare_api_token = "test-token"
+        provider = CloudflareClient(
+            settings.cloudflare_account_id, settings.cloudflare_api_token
+        )
+    else:
+        provider = GeminiClient("test-key", settings.gemini_model)
     calls = []
     monkeypatch.setattr(
         provider, "generate", lambda inputs: calls.append(inputs) or photo()

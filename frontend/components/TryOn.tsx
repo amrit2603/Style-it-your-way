@@ -323,9 +323,11 @@ export default function TryOn({
                   its{" "}
                   <a
                     href={
-                      health?.provider === "Gemini"
-                        ? "https://ai.google.dev/gemini-api/terms"
-                        : "https://docs.fashn.ai/api-overview/data-retention-privacy"
+                      health?.provider === "Cloudflare"
+                        ? "https://developers.cloudflare.com/workers-ai/platform/data-usage/"
+                        : health?.provider === "Gemini"
+                          ? "https://ai.google.dev/gemini-api/terms"
+                          : "https://docs.fashn.ai/api-overview/data-retention-privacy"
                     }
                     target="_blank"
                     rel="noreferrer"

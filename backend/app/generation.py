@@ -17,7 +17,7 @@ from .assets import (
 )
 from .catalog import check_version, load_product, save_draft
 from .config import now
-from .provider import FashnClient, GeminiClient, ProviderError
+from .provider import CloudflareClient, FashnClient, GeminiClient, ProviderError
 from .security import fail
 
 TERMINAL = {"completed", "failed", "cancelled", "expired", "needs_review"}
@@ -42,9 +42,15 @@ class GenerationService:
     def __init__(self, database, settings):
         self.db, self.settings = database, settings
         self.provider = (
-            GeminiClient(settings.gemini_api_key, settings.gemini_model)
-            if settings.gemini_api_key
-            else FashnClient(settings.fashn_api_key)
+            CloudflareClient(
+                settings.cloudflare_account_id, settings.cloudflare_api_token
+            )
+            if settings.provider_name == "Cloudflare"
+            else (
+                GeminiClient(settings.gemini_api_key, settings.gemini_model)
+                if settings.gemini_api_key
+                else FashnClient(settings.fashn_api_key)
+            )
         )
         self.stop = threading.Event()
         self.thread = None
@@ -97,7 +103,7 @@ class GenerationService:
             ):
                 fail(
                     "provider_not_configured",
-                    "Image generation is not configured. Set a backend Gemini or FASHN key and generation allowance.",
+                    "Image generation is not configured. Set backend provider credentials and a positive generation allowance.",
                     503,
                 )
             product_id = payload.product_id if operation == "tryon" else product_id
@@ -337,7 +343,7 @@ class GenerationService:
                                 "aspect_ratio": "2:3",
                             }
                         )
-                    if isinstance(self.provider, GeminiClient):
+                    if isinstance(self.provider, (GeminiClient, CloudflareClient)):
                         image = self.provider.generate(inputs)
                         with self.db.connect(write=True) as db:
                             db.execute(

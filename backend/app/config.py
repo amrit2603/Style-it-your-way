@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     fashn_api_key: str = ""
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.1-flash-image"
+    cloudflare_account_id: str = ""
+    cloudflare_api_token: str = ""
     generation_allowance: int = Field(default=0, ge=0, le=1000)
     generation_mode: str = "live"
     start_worker: bool = True
@@ -32,7 +34,15 @@ class Settings(BaseSettings):
 
     @property
     def provider_configured(self):
+        if self.provider_name == "Cloudflare":
+            return bool(self.cloudflare_account_id and self.cloudflare_api_token)
         return bool(self.gemini_api_key or self.fashn_api_key)
+
+    @property
+    def provider_name(self):
+        if self.cloudflare_account_id or self.cloudflare_api_token:
+            return "Cloudflare"
+        return "Gemini" if self.gemini_api_key else "FASHN"
 
 
 def now():

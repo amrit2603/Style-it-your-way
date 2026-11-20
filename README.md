@@ -7,7 +7,7 @@ A local Next.js + FastAPI prototype with two connected workflows:
 
 The storefront follows the supplied Panna reference: portrait catalog grid, compact white header, gold actions and a chat drawer. Merchant preparation follows Details → Images → Generate → Review & publish.
 
-**Real generation supports Gemini and FASHN.** A configured Gemini key takes precedence; otherwise FASHN is used. The Gemini key passed Google's model-list check, but the live image trial returned HTTP 429 (quota unavailable). No live generated output was obtained. Demo mode returns an explicitly labelled fixed sample; it does not generate a personalized result. Its sample garments are fictional.
+**Real generation supports Cloudflare Workers AI, Gemini and FASHN.** Cloudflare credentials take precedence, then Gemini, then FASHN. Partial Cloudflare credentials disable generation instead of silently sending photos to another provider. The Gemini key passed Google's model-list check, but the live image trial returned HTTP 429 (quota unavailable). No live generated output was obtained. Demo mode returns an explicitly labelled fixed sample; it does not generate a personalized result. Its sample garments are fictional.
 
 ## Run the local demonstration
 
@@ -26,6 +26,17 @@ Use `-SkipInstall` after the first dependency setup.
 Keep the terminal open; Ctrl+C stops the servers owned by that script. Ports 3000/8000 must be free. Demo mode uses `data/demo`, separately from live data. Four original AI-created sample garments and a PDF catalog are provided in `demo/`; none were copied from Panna. They are test content, not evidence of FASHN output quality. See [provenance](demo/ASSETS.md).
 
 ## Enable real generation
+
+For Cloudflare Workers AI, open [Cloudflare Dashboard](https://dash.cloudflare.com/) → Workers AI → Use REST API. Copy Account ID and create a Workers AI API token using the provided template. Put these values in the private `backend/.env` file:
+
+```env
+VYUMI_CLOUDFLARE_ACCOUNT_ID=your_account_id
+VYUMI_CLOUDFLARE_API_TOKEN=your_workers_ai_token
+```
+
+Never paste the token into chat or frontend code. A positive local generation allowance is also required. Restart the backend after saving. The adapter uses `@cf/black-forest-labs/flux-2-klein-4b`, sending the garment as image 0 and the person as image 1 where applicable. References are resized to at most 511 pixels per side to meet the provider's input limit; this can lose fine garment details. Outputs are requested at 768 × 1024. This is a general image-editing model, with no measured garment or identity accuracy yet. See [reference-image API instructions](https://developers.cloudflare.com/changelog/post/2026-01-15-flux-2-klein-4b-workers-ai/) and [current Workers AI free allocation/pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/). Free allocation is shared and limited, not unlimited generation.
+
+For Gemini or FASHN (leave both Cloudflare credential fields empty):
 
 1. Copy `.env.example` to `backend/.env` if it does not exist. Git ignores this private file.
 2. Set a long `VYUMI_MERCHANT_TOKEN`, your `VYUMI_GEMINI_API_KEY` (or `VYUMI_FASHN_API_KEY`) and a positive `VYUMI_GENERATION_ALLOWANCE`. Keep keys out of chat and browser code. Gemini defaults to `VYUMI_GEMINI_MODEL=gemini-3.1-flash-image`; Google billing/quota must permit image output. The local demonstration allowance is three total requests, not a monetary cap.
@@ -62,7 +73,7 @@ Catalog images need explicit review before publication. Original references star
 
 ## Privacy and scope
 
-Personal inputs/results expire one hour after input upload. Access is revoked immediately at expiry/deletion/logout; queued personal work is cancelled, late results discarded, and cleanup retries locked file removal. Inputs/outputs use inline base64 so the local photo server is not exposed publicly. Local deletion does not promise removal of provider-held data; consult [Google's API terms](https://ai.google.dev/gemini-api/terms) or [FASHN retention](https://docs.fashn.ai/api-overview/data-retention-privacy). The shopper consent panel names the configured provider.
+Personal inputs/results expire one hour after input upload. Access is revoked immediately at expiry/deletion/logout; queued personal work is cancelled, late results discarded, and cleanup retries locked file removal. Inputs/outputs use inline data so the local photo server is not exposed publicly. Local deletion does not promise removal of provider-held data; consult [Cloudflare data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Google's API terms](https://ai.google.dev/gemini-api/terms) or [FASHN retention](https://docs.fashn.ai/api-overview/data-retention-privacy). The shopper consent panel names the configured provider.
 
 Servers bind to loopback. Merchant access uses a local token and HttpOnly session; mutations require origin/CSRF checks. Private assets and personal jobs enforce session ownership. This is one local merchant workspace, not a publicly hosted multi-tenant system. No checkout, payments, inventory integration, email delivery or fit guarantees.
 
