@@ -85,9 +85,11 @@ class IDMRunner:
 
         for name in ("text_encoder_one", "text_encoder_two", "image_encoder"):
             cpu_offload(self.scope[name], execution_device=torch.device("cuda:0"))
+        pipe = self.scope["pipe"]
+        # Infer CUDA execution from encoder hooks rather than a meta-device parameter.
+        pipe._exclude_from_cpu_offload = ["unet", "unet_encoder", "vae"]
+        assert pipe._execution_device.type == "cuda"
         torch.cuda.empty_cache()
-        self.scope["pipe"].enable_attention_slicing("max")
-        self.scope["pipe"].enable_vae_slicing()
         self.original_mask = self.scope["get_mask_location"]
 
     def __call__(self, person, garment, category):
