@@ -4,6 +4,8 @@ For Colab, use `vyumi_idmvton_colab.ipynb` and select Runtime → Change runtime
 
 Open `vyumi_idmvton_kaggle.ipynb` in Kaggle, enable Internet and a CUDA GPU, and run cells in order. Colab uses the same isolated runtime with secure token prompts. First setup installs a pinned Python/PyTorch environment, builds pinned Detectron2, downloads pinned IDM-VTON and preprocessing checkpoints, then starts an authenticated loopback API.
 
+The host kernel needs PyTorch 2.1+ with memory-mapped loading and `safetensors` for the one-time conversion of the original 11 GiB UNet pickle to fp16 safetensors. The current Colab kernel passed those checks. Original downloaded weights remain intact; only a local half-precision derivative is added. The service keeps the pinned isolated runtime, loads large components onto CUDA individually and offloads text/image encoders to leave inference memory on a T4. Hardware validation remains separate from successful installation.
+
 Required private secrets: `NGROK_AUTHTOKEN` and `VYUMI_GPU_TOKEN` (at least 24 random characters). Never print, commit or paste these tokens into chat. The GPU token is distinct from the ngrok token. The notebook opens the tunnel only after its real-inference smoke test passes. Keep the notebook/runtime private and stop it when finished.
 
 Set backend-only `VYUMI_TRYON_PROVIDER=kaggle`, `VYUMI_KAGGLE_API_URL=https://...`, and `VYUMI_KAGGLE_API_TOKEN` to the matching GPU secret. The backend retries a transient failure once with the same request ID; the service serializes inference and caches two completed outputs for up to one hour. A kernel restart clears that cache, so uncertain requests must be reviewed rather than blindly resubmitted.

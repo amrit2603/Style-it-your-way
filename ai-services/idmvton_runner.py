@@ -43,6 +43,17 @@ class IDMRunner:
                 break
             if "base_path" in names:
                 node.value = ast.Constant(str(Path(model_dir).resolve()))
+            if isinstance(node, ast.FunctionDef) and node.name == "start_tryon":
+                node.body = [
+                    statement
+                    for statement in node.body
+                    if not (
+                        isinstance(statement, ast.Expr)
+                        and isinstance(statement.value, ast.Call)
+                        and ast.unparse(statement.value.func)
+                        in {"pipe.to", "pipe.unet_encoder.to"}
+                    )
+                ]
             if set(names) & {
                 "unet",
                 "UNet_Encoder",
@@ -70,6 +81,11 @@ class IDMRunner:
             ),
             self.scope,
         )
+        from accelerate import cpu_offload
+
+        for name in ("text_encoder_one", "text_encoder_two", "image_encoder"):
+            cpu_offload(self.scope[name], execution_device=torch.device("cuda:0"))
+        torch.cuda.empty_cache()
         self.scope["pipe"].enable_attention_slicing("max")
         self.scope["pipe"].enable_vae_slicing()
         self.original_mask = self.scope["get_mask_location"]

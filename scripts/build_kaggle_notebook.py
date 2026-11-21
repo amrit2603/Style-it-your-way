@@ -120,6 +120,23 @@ runtime_env = dict(os.environ, MPLBACKEND='Agg', HF_HOME=str(RUNTIME / 'hf-cache
 run_checked([str(PYTHON), '-c', download_script], env=runtime_env)
 MODEL = Path((RUNTIME / 'model-path.txt').read_text().strip())
 assert MODEL.is_dir()
+
+# The original 11 GiB pickle checkpoint exceeds a standard Colab RAM budget.
+import torch as host_torch, inspect, gc, ctypes
+from safetensors.torch import save_file
+source_weights = MODEL / 'unet/diffusion_pytorch_model.bin'
+safe_weights = MODEL / 'unet/diffusion_pytorch_model.safetensors'
+if not safe_weights.exists():
+    assert 'mmap' in inspect.signature(host_torch.load).parameters, 'Weight conversion needs a host kernel with PyTorch >=2.1'
+    mapped = host_torch.load(source_weights, mmap=True, weights_only=True, map_location='cpu')
+    half_weights = {name: tensor.to(dtype=host_torch.float16).contiguous() if tensor.is_floating_point() else tensor.contiguous() for name, tensor in mapped.items()}
+    temporary = safe_weights.with_suffix('.safetensors.tmp')
+    save_file(half_weights, str(temporary), metadata={'format': 'pt'})
+    temporary.replace(safe_weights)
+    del half_weights, mapped
+    gc.collect()
+    ctypes.CDLL('libc.so.6').malloc_trim(0)
+print('Memory-safe fp16 weights ready:', round(safe_weights.stat().st_size / 1024**3, 2), 'GiB')
 """)
 
 markdown("""## Start the authenticated API
