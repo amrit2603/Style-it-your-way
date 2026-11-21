@@ -18,23 +18,37 @@ class KaggleClient:
                 "kaggle_not_configured",
                 "Start the GPU notebook and configure its tunnel URL and API token.",
             )
+        garments = [inputs["product_image"], *inputs.get("additional_images", [])]
+        categories = inputs.get("garment_categories") or ["top"]
+        if not 1 <= len(garments) <= 3 or len(categories) != len(garments):
+            raise ProviderError(
+                "outfit_invalid", "Select up to three compatible clothing pieces."
+            )
+        person = inputs["model_image"]
+        for index, garment in enumerate(garments):
+            request_id = inputs["request_id"] + (f"-piece-{index + 1}" if index else "")
+            result = self._generate_one(person, garment, categories[index], request_id)
+            person = "data:image/jpeg;base64," + base64.b64encode(result).decode()
+        return result
+
+    def _generate_one(self, person, garment, category, request_id):
+        from ..provider import ProviderError
+
         files = {
             "person_image": (
                 "person.jpg",
-                base64.b64decode(inputs["model_image"].split(",", 1)[1], validate=True),
+                base64.b64decode(person.split(",", 1)[1], validate=True),
                 "image/jpeg",
             ),
             "garment_image": (
                 "garment.jpg",
-                base64.b64decode(
-                    inputs["product_image"].split(",", 1)[1], validate=True
-                ),
+                base64.b64decode(garment.split(",", 1)[1], validate=True),
                 "image/jpeg",
             ),
         }
         headers = {
             "Authorization": "Bearer " + self.token,
-            "X-Request-ID": inputs["request_id"],
+            "X-Request-ID": request_id,
             "ngrok-skip-browser-warning": "true",
         }
         for attempt in range(2):
@@ -47,7 +61,7 @@ class KaggleClient:
                         self.origin + "/try-on",
                         headers=headers,
                         files=files,
-                        data={"category": inputs.get("garment_categories", ["top"])[0]},
+                        data={"category": category},
                     ) as response:
                         response.raise_for_status()
                         content = bytearray()

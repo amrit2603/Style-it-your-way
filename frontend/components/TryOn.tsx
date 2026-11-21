@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 import PhotoGuide from "./PhotoGuide";
+import BeforeAfter from "./BeforeAfter";
 import {
   api,
   ensureSession,
@@ -19,16 +20,24 @@ import {
 export default function TryOn({
   product,
   view,
+  comparisonSlider = false,
+  additionalProducts = [],
 }: {
   product: Product;
   view: string;
+  comparisonSlider?: boolean;
+  additionalProducts?: Product[];
 }) {
   const room = ["furniture", "decor", "curtains"].includes(product.category);
   const primary = ["shoes", "watch", "furniture", "decor", "curtains"].includes(
     product.category,
   );
-  const endpoint = `/style-it/generate?product=${product.id}&view=${view}`;
-  const storageKey = `vyumi-look:${product.id}:${view}`;
+  const selection = [
+    product.id,
+    ...additionalProducts.map((item) => item.id),
+  ].join(",");
+  const endpoint = `/style-it/generate?product=${selection}&view=${view}`;
+  const storageKey = `vyumi-look:${selection}:${view}`;
   const [health, setHealth] = useState<Health>(),
     [photo, setPhoto] = useState<Photo>(),
     [job, setJob] = useState<Job>(),
@@ -135,6 +144,13 @@ export default function TryOn({
           product_id: product.id,
           user_image_id: input.id,
           view,
+          ...(additionalProducts.length
+            ? {
+                additional_product_ids: additionalProducts.map(
+                  (item) => item.id,
+                ),
+              }
+            : {}),
         }),
       );
     } catch (e) {
@@ -158,7 +174,10 @@ export default function TryOn({
       body.set("file", file);
       body.set("consent", "true");
       body.set("view", view);
-      body.set("purpose", room ? "room" : product.category === "watch" ? "wrist" : "person");
+      body.set(
+        "purpose",
+        room ? "room" : product.category === "watch" ? "wrist" : "person",
+      );
       if (height) body.set("height_cm", height);
       if (weight) body.set("weight_kg", weight);
       if (width) body.set("body_width_cm", width);
@@ -353,30 +372,49 @@ export default function TryOn({
       )}
       {job?.status === "completed" && job.result_image_url && photo && (
         <div className="result">
-          <h2>{job.fixture ? "Demonstration result" : "Your new look"}</h2>
-          <div className="comparison">
-            <figure>
-              <img src={photo.url} alt="Your original photo" />
-              <figcaption>Your {view} photo</figcaption>
-            </figure>
-            <figure>
-              <img
-                src={job.result_image_url}
-                alt={
-                  job.fixture
-                    ? "Labelled demonstration sample"
-                    : `Your AI-generated ${view} preview`
-                }
-              />
-              <figcaption>
-                {job.fixture
-                  ? "Demo sample"
-                  : job.visualization_kind === "room_composite"
-                    ? "Room placement demo"
-                    : `${view} preview`}
-              </figcaption>
-            </figure>
-          </div>
+          <h2>
+            {job.fixture
+              ? "Demonstration result"
+              : room
+                ? "Your room preview"
+                : "Your new look"}
+          </h2>
+          {job.visualization_kind === "room_composite" && (
+            <p className="notice">
+              Room placement demo · Approximate overlay, not to scale.
+            </p>
+          )}
+          {comparisonSlider ? (
+            <BeforeAfter
+              before={photo.url}
+              after={job.result_image_url}
+              fixture={job.fixture}
+            />
+          ) : (
+            <div className="comparison">
+              <figure>
+                <img src={photo.url} alt="Your original photo" />
+                <figcaption>Your {view} photo</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src={job.result_image_url}
+                  alt={
+                    job.fixture
+                      ? "Labelled demonstration sample"
+                      : `Your AI-generated ${view} preview`
+                  }
+                />
+                <figcaption>
+                  {job.fixture
+                    ? "Demo sample"
+                    : job.visualization_kind === "room_composite"
+                      ? "Room placement demo"
+                      : `${view} preview`}
+                </figcaption>
+              </figure>
+            </div>
+          )}
           <a
             className="gold button wide"
             href={`${job.result_image_url}?download=true`}

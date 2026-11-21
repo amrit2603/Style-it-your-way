@@ -1,0 +1,12 @@
+FROM node:22-bookworm-slim
+ARG APP=client
+ARG BACKEND_URL=http://backend:8000
+ENV BACKEND_URL=$BACKEND_URL
+WORKDIR /workspace
+COPY frontend/ frontend/
+COPY admin/ admin/
+COPY client/ client/
+RUN npm --prefix frontend ci && npm --prefix ${APP} ci && npm --prefix ${APP} run build
+WORKDIR /workspace/${APP}
+EXPOSE 3000
+CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0", "--port", "3000"]

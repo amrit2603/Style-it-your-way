@@ -439,6 +439,59 @@ def test_kaggle_contract_auth_order_and_retry_idempotency(monkeypatch):
     assert result == photo() and len(requests) == 2
 
 
+def test_kaggle_outfit_keeps_shopper_first_and_retries_only_the_current_piece(
+    monkeypatch,
+):
+    from app.provider import ProviderError
+
+    calls = []
+
+    def handle(request):
+        calls.append(request)
+        if len(calls) == 1:
+            assert (
+                b"shopper-original" in request.content
+                and b"garment-one" in request.content
+            )
+            assert request.headers["x-request-id"] == "outfit-request"
+            return httpx.Response(
+                200,
+                json={
+                    "image_base64": base64.b64encode(b"first-personal-result").decode()
+                },
+            )
+        assert (
+            b"first-personal-result" in request.content
+            and b"garment-two" in request.content
+        )
+        assert b"shopper-original" not in request.content
+        assert request.headers["x-request-id"] == "outfit-request-piece-2"
+        assert b"trousers" in request.content
+        if len(calls) == 2:
+            raise httpx.ReadTimeout("test", request=request)
+        return httpx.Response(
+            200, json={"image_base64": base64.b64encode(b"finished-outfit").decode()}
+        )
+
+    transport(monkeypatch, handle)
+
+    def uri(data):
+        return "data:image/png;base64," + base64.b64encode(data).decode()
+
+    client = KaggleClient("https://example.ngrok-free.app", "test-token")
+    inputs = {
+        "model_image": uri(b"shopper-original"),
+        "product_image": uri(b"garment-one"),
+        "additional_images": [uri(b"garment-two")],
+        "garment_categories": ["shirt", "trousers"],
+        "request_id": "outfit-request",
+    }
+    assert client.generate(inputs) == b"finished-outfit" and len(calls) == 3
+    with pytest.raises(ProviderError):
+        client.generate({**inputs, "garment_categories": ["shirt"]})
+    assert len(calls) == 3
+
+
 @pytest.mark.parametrize(
     "url",
     [

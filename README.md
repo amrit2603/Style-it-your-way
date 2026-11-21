@@ -1,14 +1,36 @@
 # VYUMI Style It Your Way
 
-The expanded e-commerce platform is being built in checkpoints: **backend → GPU notebook → separate admin app → separate customer app**. The shared backend now includes accounts, orders, stock-model/room libraries and the notebook API adapter. See [backend setup](docs/BACKEND.md) and [checkpoint evidence](docs/CHECKPOINT_RESULTS.md). The existing storefront below remains available during this work; the separate apps are not yet implemented.
+The local platform includes a shared backend, GPU notebooks, a separate merchant admin (`admin/`) and customer website (`client/`). They were implemented and tested in that order. See [platform setup](docs/PLATFORM_SETUP.md), [backend routes](docs/BACKEND.md) and [checkpoint evidence](docs/CHECKPOINT_RESULTS.md).
 
-GPU notebooks: [Colab](notebooks/vyumi_idmvton_colab.ipynb), [Kaggle](notebooks/vyumi_idmvton_kaggle.ipynb), [setup instructions](notebooks/README.md). Local schema/API-contract tests pass; real GPU inference must pass in the notebook before the admin phase starts. [Open the Colab notebook](https://colab.research.google.com/github/amrit2603/Style-it-your-way/blob/main/notebooks/vyumi_idmvton_colab.ipynb).
+GPU notebooks: [Colab](notebooks/vyumi_idmvton_colab.ipynb), [Kaggle](notebooks/vyumi_idmvton_kaggle.ipynb), [setup instructions](notebooks/README.md). A real T4 saree transfer and authenticated in-process HTTP generation/replay test passed in 55.1 seconds. The runtime later disconnected; no website tunnel is connected yet. This one fictional subject does not establish real-person or multi-view fidelity. IDM-VTON is noncommercial. [Open Colab](https://colab.research.google.com/github/amrit2603/Style-it-your-way/blob/main/notebooks/vyumi_idmvton_colab.ipynb).
+
+Run `scripts/start.ps1 -Platform -SkipInstall` after setup. Customer: [localhost:3003](http://127.0.0.1:3003); admin: [localhost:3002](http://127.0.0.1:3002); existing prototype: [localhost:3000](http://127.0.0.1:3000). Omit `-SkipInstall` for the first install. Add `-Demo` for a separate fixed-sample workspace. Set owner credentials privately in `backend/.env`; no public owner password is created.
+
+The customer app adds filters, gallery, locked product styling, a separate outfit workflow, comparison slider, cart variants, accounts, unpaid checkout and private order history. Admin adds photo/PDF products, reusable models/rooms, generation, review/publication and order progression. Prices are calculated by the server; fixtures cannot be ordered.
+
+Screenshots show isolated fixture data, not personalized generation:
+
+![Customer storefront](docs/screenshots/customer-desktop.png)
+
+[Mobile storefront](docs/screenshots/customer-mobile.png) · [Merchant admin](docs/screenshots/admin-desktop.png)
+
+```mermaid
+flowchart TB
+  Client[Customer Next.js :3003] --> API[FastAPI :8000]
+  Admin[Admin Next.js :3002] --> API
+  API --> DB[(SQLite)]
+  API --> Files[Private local files]
+  API --> Jobs[Generation worker]
+  Jobs --> GPU[Authenticated Colab or Kaggle IDM-VTON]
+  Jobs --> Catalog[Cloudflare / Gemini / FASHN]
+  Jobs --> Room[Labelled room-placement demo]
+```
 
 A local Next.js + FastAPI prototype with two connected workflows:
 
 Collections now separate **Women, Men and Unisex**, with sarees, suits/sets, shirts, tops/T-shirts, trousers/jeans, skirts, dresses, kurtas, jackets/blazers and lehengas. Merchants set the collection/category and choose adult model presentation and studio/daylight/outdoor settings. Shoes, watches and furniture are also available as categories. A selected product opens its own styling page, with no garment switcher. The API retains up to three complementary clothing pieces for existing callers; the shopper page previews one product.
 
-**Personal try-on uses the dedicated FASHN VTON 1.5 model through its official public GPU demo.** Choose a product, consent and upload a photo: generation starts automatically. Original and result appear together with direct download. Two earlier live uploads completed; the latest live attempt returned a service error without an image. See [evaluation evidence](docs/IDENTITY_EVALUATION.md). The shared demo has quota/capacity limits; production reliability and representative real-person accuracy remain unverified. A paid FASHN adapter is available but requires its own key.
+**The previous live configuration uses FASHN VTON 1.5 through its public GPU demo until Colab is connected.** Choose a product, consent and upload a photo: generation starts automatically. Original and result appear together with direct download. Two earlier live uploads completed; the latest live attempt returned a service error without an image. See [evaluation evidence](docs/IDENTITY_EVALUATION.md). Shared capacity and real-person accuracy remain unverified. Paid FASHN and authenticated Colab adapters are available.
 
 - **Merchant studio:** upload garment photos or a PDF catalog, select garment regions, enter product details, generate model-wearing catalog previews, review and publish.
 - **Shopper storefront:** browse published garments, choose one, upload a personal photo with consent, generate a private try-on, compare, download, retry and delete.
@@ -84,7 +106,7 @@ Catalog images need explicit review before publication. Original references star
 
 Personal inputs/results expire one hour after input upload. Access is revoked immediately at expiry/deletion/logout; queued personal work is cancelled, late results discarded, and cleanup retries locked file removal. The dedicated demo receives uploaded person and garment files; other adapters use inline data. The local photo server is not exposed publicly. When using the shared demo, consult [Hugging Face privacy](https://huggingface.co/privacy) and the [official FASHN demo](https://huggingface.co/spaces/fashn-ai/fashn-vton-1.5); local expiry does not control the external host's retention. Local deletion does not promise removal of provider-held data; consult [Cloudflare data usage](https://developers.cloudflare.com/workers-ai/platform/data-usage/), [Google's API terms](https://ai.google.dev/gemini-api/terms) or [FASHN retention](https://docs.fashn.ai/api-overview/data-retention-privacy). The shopper consent panel names the configured provider.
 
-Servers bind to loopback. Merchant access uses a local token and HttpOnly session; mutations require origin/CSRF checks. Private assets and personal jobs enforce session ownership. This is one local merchant workspace, not a publicly hosted multi-tenant system. No checkout, payments, inventory integration, email delivery or fit guarantees.
+Servers bind to loopback. Admin accounts use hashed passwords and HttpOnly sessions; the old merchant token remains compatible. Mutations require origin/CSRF checks. Private assets and personal jobs enforce session ownership. This is one local store workspace, with unpaid checkout only. No payment collection, inventory integration, email delivery or fit guarantee is implemented.
 
 ## Verification commands
 

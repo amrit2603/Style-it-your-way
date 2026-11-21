@@ -1,24 +1,26 @@
 # AI-powered e-commerce platform architecture
 
-This document separates the implemented shared backend/notebook contract from the planned independent frontends. The current local storefront and merchant prototype remain in `frontend/`. All data remains in the existing SQLite database and private file store; migration 002 adds commerce tables without replacing existing catalog revisions or assets.
+The shared backend, GPU notebook and independent admin/customer apps are implemented. The original prototype remains in `frontend/`. All data remains in SQLite and private files; migration 002 adds commerce tables without replacing existing catalog revisions or assets.
 
 ```mermaid
 flowchart TB
   Current[Existing Next.js prototype] --> API[FastAPI shared backend]
-  Client[Independent customer app: planned] -.-> API
-  Admin[Independent admin app: planned] -.-> API
+  Client[Independent customer app :3003] --> API
+  Admin[Independent admin app :3002] --> API
   API --> DB[(SQLite: users, sessions, catalog, orders, libraries, jobs)]
   API --> Files[Private original, library and temporary personal assets]
   API --> Worker[Durable generation worker]
   Worker --> Adapter[Authenticated service adapter]
-  Adapter --> GPU[Colab or Kaggle: IDM-VTON, CUDA test pending]
+  Adapter --> GPU[Colab or Kaggle: IDM-VTON, independent T4 test passed]
   Worker --> Room[Local room compositor: labelled demo]
   Worker --> Existing[Existing Cloudflare, Gemini, FASHN adapters]
 ```
 
 ## Accounts and commerce
 
-Users store salted scrypt password hashes and customer/admin roles. Sessions store only a random cookie-token hash, CSRF token, expiry and optional user ID. Admin account sessions map to the existing merchant role so the proven catalog authorization remains in use. Account login rotates the session; logout also invalidates personal work. Origin/CSRF checks apply to the shared API, including its `/api` aliases. Future independent apps use their own same-origin API proxies; the backend does not expose a permissive CORS wildcard.
+Users store salted scrypt password hashes and customer/admin roles. Sessions store only a random cookie-token hash, CSRF token, expiry and optional user ID. Admin sessions retain the existing merchant authorization. Login rotates the session; logout invalidates personal work. Origin/CSRF checks apply to the shared API and its `/api` aliases. Both independent apps use same-origin proxies; there is no permissive CORS wildcard.
+
+Customer carts contain public snapshots only. Checkout sends IDs/options; server prices remain authoritative. A per-account request key and payload hash survive uncertain responses without storing delivery addresses in browser storage. Order ownership is enforced by the API. The separate outfit workflow applies up to three original garments sequentially; the original shopper is the first person input and prior output becomes the next. Stage IDs stabilize retries, but later stages may alter earlier details. Actual multi-piece CUDA fidelity is untested.
 
 Catalog drafts and immutable publication snapshots retain JSON image metadata, with separate asset records for file provenance/ownership. Colors and creation time extend the existing product metadata. Archived products are unpublished; historical order items retain names, SKUs, options and integer prices. Orders calculate totals from published server prices inside a transaction; request keys prevent duplicate checkout. No payment gateway or inventory reservation is implemented.
 

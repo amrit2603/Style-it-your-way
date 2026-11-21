@@ -2143,3 +2143,4 @@ dialog.tryon-drawer::backdrop {
     justify-content: space-between;
   }
 }
+.before-after{margin:20px 0;}.before-after-canvas{position:relative;aspect-ratio:3/4;max-width:480px;margin:0 auto;background:#f2f0e7;overflow:hidden;}.before-after-canvas img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}.before-after-overlay{position:absolute;inset:0;}.before-after-divider{position:absolute;top:0;bottom:0;width:2px;background:#fff;pointer-events:none;}.before-after-label{position:absolute;top:12px;background:#fff;color:#222820;padding:5px 9px;font-size:12px;}.before-after-label.after{left:12px;}.before-after-label.before{right:12px;}.before-after>label{display:block;margin-top:16px;font-size:14px;}.before-after>input{width:100%;margin:12px 0;accent-color:#806b32;}.before-after figcaption{font-size:13px;color:#63665b;}
