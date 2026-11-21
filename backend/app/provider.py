@@ -12,7 +12,7 @@ def product_prompt(inputs, has_person):
     category = inputs["category"]
     if not has_person:
         return f"Create a photorealistic catalog photograph of the exact {category} product in the first reference, with the requested camera view and scene. For furniture use a realistic interior; for shoes or a watch show the product clearly. Do not turn this product into clothing. "
-    if category == "furniture":
+    if category in {"furniture", "decor", "curtains"}:
         return "Edit the first reference, the customer's room photo. Place the exact furniture product from the second reference naturally in the room. Preserve walls, doors, windows, camera perspective and other objects. Respect occlusion, floor contact and realistic shadows. Dimensions are user-supplied context, never a calibrated scale guarantee. Do not introduce a person or clothing. "
     return f"Edit the first reference, the customer's photo. Put the exact {category} from the second reference on the person's {'feet' if category == 'shoes' else 'visible wrist'}. Preserve face, skin, body shape, existing clothing, pose and background. Change only the selected accessory; do not replace clothing. Preserve product proportions and details. "
 
@@ -203,7 +203,13 @@ class CloudflareClient:
             if person
             else "Create a photorealistic full-body catalog shoot of an adult fashion model wearing the exact garment from image 0. Follow the requested model presentation and setting. Use natural skin texture and realistic proportions. "
         )
-        if inputs.get("category") in {"shoes", "watch", "furniture"}:
+        if inputs.get("category") in {
+            "shoes",
+            "watch",
+            "furniture",
+            "decor",
+            "curtains",
+        }:
             prompt = product_prompt(inputs, bool(person))
         else:
             prompt += "Preserve garment color, print, embroidery, border, fabric and all suit pieces; drape sarees naturally with blouse and pallu. "
@@ -304,7 +310,13 @@ class GeminiClient:
             if person
             else "Create one photorealistic catalog brand shoot of an adult fashion model wearing the garment in image 1, full body. Follow the requested model presentation and setting, with natural skin texture and realistic proportions. "
         )
-        if inputs.get("category") in {"shoes", "watch", "furniture"}:
+        if inputs.get("category") in {
+            "shoes",
+            "watch",
+            "furniture",
+            "decor",
+            "curtains",
+        }:
             prompt = product_prompt(inputs, bool(person))
         else:
             prompt += "Preserve the exact garment color, print, embroidery, border and fabric details. Drape sarees naturally with the matching blouse and pallu; retain all pieces of suits. "

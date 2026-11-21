@@ -1,0 +1,23 @@
+# Isolated Python 3.10 runtime, paired with the upstream PyTorch 2.0.1 CUDA 11.8 stack.
+accelerate==0.25.0
+transformers==4.36.2
+diffusers==0.25.0
+huggingface-hub==0.25.2
+numpy==1.26.4
+Pillow==10.4.0
+einops==0.7.0
+scipy==1.11.1
+opencv-python-headless==4.10.0.84
+onnxruntime==1.16.2
+fvcore==0.1.5.post20221221
+cloudpickle==3.1.0
+omegaconf==2.3.0
+pycocotools==2.0.8
+av==13.1.0
+gradio==4.24.0
+fastapi==0.115.5
+uvicorn==0.32.0
+python-multipart==0.0.20
+pyngrok==7.2.1
+httpx==0.28.1
+ninja==1.11.1.1

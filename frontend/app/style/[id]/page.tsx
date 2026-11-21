@@ -39,7 +39,7 @@ export default function StylePage({
           <>
             <div className="style-heading">
               <h1>
-                {product.category === "furniture"
+                {["furniture", "decor", "curtains"].includes(product.category)
                   ? "See it in your space."
                   : "Style it on you."}
               </h1>
@@ -75,7 +75,7 @@ export default function StylePage({
                   ))}
                 </nav>
                 <p className="view-guidance">
-                  {product.category === "furniture"
+                  {["furniture", "decor", "curtains"].includes(product.category)
                     ? "Upload a room photo from each direction you want to preview."
                     : "Upload a matching photo for each view you want. Side and back previews need side and back photos; we don’t know your unseen shape from a front photo."}{" "}
                   Unseen product details may be approximated.

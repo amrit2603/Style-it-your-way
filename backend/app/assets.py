@@ -14,7 +14,7 @@ Image.MAX_IMAGE_PIXELS = 25_000_000
 register_heif_opener()
 
 
-def decode_image(content: bytes, *, minimum=True):
+def decode_image(content: bytes, *, minimum=True, preserve_alpha=False):
     if len(content) > MAX_PHOTO:
         fail("photo_too_large", "Choose a photo smaller than 10 MiB.")
     try:
@@ -32,7 +32,9 @@ def decode_image(content: bytes, *, minimum=True):
                     )
                 if source.width * source.height > 25_000_000:
                     fail("photo_pixels", "Choose a photo smaller than 25 megapixels.")
-                image = ImageOps.exif_transpose(source).convert("RGB")
+                image = ImageOps.exif_transpose(source).convert(
+                    "RGBA" if preserve_alpha and "A" in source.getbands() else "RGB"
+                )
                 image.load()
     except (
         UnidentifiedImageError,
@@ -54,12 +56,17 @@ def save_image(
     database, image, owner, kind, product_id=None, expires=None, source=None
 ):
     asset_id = str(uuid.uuid4())
-    filename = asset_id + ".jpg"
+    transparent = image.mode == "RGBA"
+    filename = asset_id + (".png" if transparent else ".jpg")
     folder = database.root / "files"
     folder.mkdir(exist_ok=True)
     target = folder / filename
     try:
-        image.save(target, "JPEG", quality=92)
+        image.save(
+            target,
+            "PNG" if transparent else "JPEG",
+            **({} if transparent else {"quality": 92}),
+        )
         with database.connect(write=True) as db:
             db.execute(
                 "INSERT INTO assets(id,owner,kind,product_id,filename,mime,width,height,expires,source,created) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
@@ -69,7 +76,7 @@ def save_image(
                     kind,
                     product_id,
                     filename,
-                    "image/jpeg",
+                    "image/png" if transparent else "image/jpeg",
                     image.width,
                     image.height,
                     expires,

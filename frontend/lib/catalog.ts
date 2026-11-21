@@ -13,6 +13,8 @@ export const categories = [
   ["shoes", "Shoes"],
   ["watch", "Watches"],
   ["furniture", "Furniture"],
+  ["decor", "Home decor"],
+  ["curtains", "Curtains"],
 ] as const;
 export const audiences = [
   ["all", "Everyone"],

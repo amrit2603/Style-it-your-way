@@ -14,7 +14,7 @@ from PIL import Image
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import assets, catalog
+from . import accounts, assets, catalog, commerce
 from .body_limit import BodyLimitMiddleware
 from .config import Settings, now
 from .db import Database
@@ -109,7 +109,12 @@ def create_app(settings=None):
                     },
                     status_code=400,
                 )
-            if request.url.path not in {"/sessions", "/merchant/session"}:
+            if request.url.path not in {
+                "/sessions",
+                "/merchant/session",
+                "/auth/signup",
+                "/auth/login",
+            }:
                 session = current_session(request, optional=True)
                 if not session:
                     return JSONResponse(
@@ -136,8 +141,8 @@ def create_app(settings=None):
                     )
         if (
             request.url.path.startswith("/merchant/")
-            and request.url.path != "/merchant/session"
-        ):
+            or request.url.path.startswith("/admin/")
+        ) and request.url.path != "/merchant/session":
             session = current_session(request, optional=True)
             if not session or session["role"] != "merchant":
                 return JSONResponse(
@@ -187,6 +192,10 @@ def create_app(settings=None):
             "generation_mode": settings.generation_mode,
             "provider": settings.tryon_name,
             "catalog_provider": settings.provider_name,
+            "room_provider": settings.room_provider,
+            "room_ready": settings.fixture
+            or settings.room_provider == "composite"
+            or bool(settings.provider_configured and generation.remaining() > 0),
             "remaining_allowance": generation.remaining(),
         }
 
@@ -269,7 +278,9 @@ def create_app(settings=None):
         with database.connect() as db:
             return [
                 merchant_product_view(db, catalog.load_product(db, row["id"]))
-                for row in db.execute("SELECT id FROM products ORDER BY updated DESC")
+                for row in db.execute(
+                    "SELECT id FROM products WHERE NOT COALESCE(json_extract(draft,'$.archived'),0) ORDER BY updated DESC"
+                )
             ]
 
     @app.post("/merchant/products")
@@ -298,7 +309,9 @@ def create_app(settings=None):
         session = merchant(request)
         with database.connect() as db:
             catalog.load_product(db, product_id)
-        image = assets.decode_image(await assets.read_upload(file, assets.MAX_PHOTO))
+        image = assets.decode_image(
+            await assets.read_upload(file, assets.MAX_PHOTO), preserve_alpha=True
+        )
         asset_id = assets.save_image(
             database, image, session["id"], "original", product_id
         )
@@ -337,24 +350,27 @@ def create_app(settings=None):
     def public_products(
         category: GarmentCategory | None = None,
         audience: Literal["women", "men", "unisex"] | None = None,
+        q: str = "",
+        color: str = "",
+        size: str = "",
+        min_price: int = 0,
+        max_price: int | None = None,
+        sort: Literal["newest", "price_asc", "price_desc", "popular"] = "newest",
+        page: int = 1,
+        limit: int = 60,
     ):
-        with database.connect() as db:
-            products = [
-                catalog.load_product(db, row["id"], public=True)
-                for row in db.execute(
-                    "SELECT id FROM products WHERE published IS NOT NULL ORDER BY updated DESC"
-                )
-            ]
-        return [
-            catalog.response_product(product, public=True)
-            for product in products
-            if (not category or product["category"] == category)
-            and (
-                not audience
-                or product["audience"] == audience
-                or (audience != "unisex" and product["audience"] == "unisex")
-            )
-        ]
+        return app.state.shop(
+            q=q,
+            category=category or "",
+            audience=audience,
+            color=color,
+            size=size,
+            min_price=min_price,
+            max_price=max_price,
+            sort=sort,
+            page=page,
+            limit=limit,
+        )["items"]
 
     @app.get("/products/{product_id}")
     def public_product(product_id: str):
@@ -590,7 +606,8 @@ def create_app(settings=None):
             asset = assets.get_asset(db, asset_id)
         permitted = asset["owner"] == session["id"] or (
             session["role"] == "merchant"
-            and asset["kind"] in {"original", "generated", "pdf"}
+            and asset["kind"]
+            in {"original", "generated", "pdf", "stock_model", "room_template"}
         )
         if not permitted:
             fail("asset_not_found", "This image is unavailable in your session.", 404)
@@ -652,7 +669,22 @@ def create_app(settings=None):
             assets.mark_deleted(database, [asset_id])
         return {"ok": True}
 
+    accounts.install(app)
+    commerce.install(app, personal_photo)
+    for route in list(app.routes):
+        if (
+            hasattr(route, "path")
+            and route.path.startswith("/merchant/")
+            and route.path != "/merchant/session"
+        ):
+            app.add_api_route(
+                route.path.replace("/merchant/", "/admin/", 1),
+                route.endpoint,
+                methods=list(route.methods),
+                response_model=route.response_model,
+            )
     app.add_middleware(BodyLimitMiddleware)
+    app.add_middleware(commerce.ApiPrefixMiddleware)
     return app
 
 

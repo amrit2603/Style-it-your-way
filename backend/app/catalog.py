@@ -70,6 +70,7 @@ def create_product(database, payload):
     product = {
         "id": str(uuid.uuid4()),
         "version": 1,
+        "created_at": now(),
         **payload.model_dump(),
         "images": [],
         "reference_id": None,

@@ -16,6 +16,8 @@ GarmentCategory = Literal[
     "shoes",
     "watch",
     "furniture",
+    "decor",
+    "curtains",
 ]
 View = Literal["front", "back", "left", "right"]
 ImageRole = Literal["main", "reverse", "detail", "left", "right"]
@@ -32,6 +34,7 @@ class ProductInput(BaseModel):
     price_minor: int | None = Field(default=None, ge=0, le=100_000_000)
     currency: str = "INR"
     sizes: str = Field(default="", max_length=200)
+    colors: list[str] = Field(default_factory=list, max_length=30)
 
     @field_validator("sku", "name", "description")
     @classmethod
@@ -82,6 +85,8 @@ class CropInput(BaseModel):
 
 
 class CatalogGenerate(VersionInput):
+    stock_model_id: str | None = None
+    room_template_id: str | None = None
     view: View = "front"
     presentation: Literal["women", "men", "unisex"] = "women"
     scene: Literal["studio", "daylight", "outdoor"] = "studio"

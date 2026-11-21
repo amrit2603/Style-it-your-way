@@ -143,7 +143,7 @@ def test_job_context_migration_is_additive_and_repeatable(tmp_path):
         db.execute("ALTER TABLE jobs DROP COLUMN context")
         db.execute("UPDATE counters SET value=7 WHERE key='live_submissions'")
         db.execute(
-            "INSERT INTO sessions VALUES ('old-session','hash','csrf','shopper',123)"
+            "INSERT INTO sessions(id,token_hash,csrf,role,expires) VALUES ('old-session','hash','csrf','shopper',123)"
         )
     Database(tmp_path)
     Database(tmp_path)

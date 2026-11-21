@@ -24,7 +24,9 @@ export type Product = {
     | "lehenga"
     | "shoes"
     | "watch"
-    | "furniture";
+    | "furniture"
+    | "decor"
+    | "curtains";
   audience?: "women" | "men" | "unisex";
   description: string;
   price_minor: number | null;
@@ -38,6 +40,7 @@ export type Product = {
   latest_job?: Job | null;
 };
 export type Job = {
+  visualization_kind?: "ai_generated" | "room_composite";
   view?: string;
   job_id: string;
   operation: string;
@@ -49,9 +52,11 @@ export type Job = {
   expires_at?: number;
 };
 export type Health = {
+  room_ready?: boolean;
+  room_provider?: "primary" | "composite";
   status: string;
   provider_ready: boolean;
-  provider?: "Cloudflare" | "Gemini" | "FASHN" | "FASHN demo";
+  provider?: "Cloudflare" | "Gemini" | "FASHN" | "FASHN demo" | "Kaggle";
   catalog_ready?: boolean;
   catalog_provider?: string;
   validator_ready: boolean;

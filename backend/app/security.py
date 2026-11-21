@@ -40,7 +40,7 @@ def merchant(request: Request):
     return session
 
 
-def new_session(request, response, role):
+def new_session(request, response, role, user_id=None):
     token = secrets.token_urlsafe(32)
     record = {
         "id": str(uuid.uuid4()),
@@ -48,10 +48,12 @@ def new_session(request, response, role):
         "csrf": secrets.token_urlsafe(24),
         "role": role,
         "expires": now() + 24 * 3600,
+        "user_id": user_id,
     }
     with request.app.state.db.connect(write=True) as db:
         db.execute(
-            "INSERT INTO sessions VALUES (:id,:token_hash,:csrf,:role,:expires)", record
+            "INSERT INTO sessions(id,token_hash,csrf,role,expires,user_id) VALUES (:id,:token_hash,:csrf,:role,:expires,:user_id)",
+            record,
         )
     response.set_cookie(
         COOKIE, token, httponly=True, samesite="strict", max_age=24 * 3600

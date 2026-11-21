@@ -7,6 +7,7 @@ import uuid
 
 from PIL import Image, ImageDraw
 
+from .ai_services import KaggleClient, composite_room
 from .assets import (
     asset_path,
     decode_image,
@@ -42,6 +43,9 @@ def job_response(job):
         "status": job["status"],
         "fixture": bool(job["fixture"]),
         "view": json.loads(job["context"]).get("view", "front"),
+        "visualization_kind": "room_composite"
+        if json.loads(job["context"]).get("composite")
+        else "ai_generated",
     }
     for field in ("expires", "error_code", "message"):
         if job[field] is not None:
@@ -71,19 +75,21 @@ class GenerationService:
         self.thread = None
         self.tick_lock = threading.Lock()
         self.dedicated = (
-            FashnDemoClient()
+            KaggleClient(settings.kaggle_api_url, settings.kaggle_api_token)
+            if settings.tryon_provider == "kaggle"
+            else FashnDemoClient()
             if settings.tryon_provider == "fashn_demo"
             else FashnClient(settings.fashn_api_key)
             if settings.tryon_provider == "fashn"
             else None
         )
 
-    def provider_for(self, operation, category=None):
+    def provider_for(self, operation, category=None, stock_model=False):
         return (
             self.dedicated
-            if operation == "tryon"
+            if (operation == "tryon" or stock_model)
             and self.dedicated is not None
-            and category not in {"shoes", "watch", "furniture"}
+            and category not in {"shoes", "watch", "furniture", "decor", "curtains"}
             else self.provider
         )
 
@@ -100,7 +106,7 @@ class GenerationService:
                 {
                     "operation": operation,
                     "product_id": product_id,
-                    **payload.model_dump(exclude={"idempotency_key"}),
+                    **payload.model_dump(exclude={"idempotency_key"}, exclude_none=True),
                 },
                 sort_keys=True,
             ).encode()
@@ -130,18 +136,45 @@ class GenerationService:
                 )
             product_id = payload.product_id if operation == "tryon" else product_id
             product = load_product(db, product_id, public=operation == "tryon")
-            uses_primary = operation == "catalog" or product["category"] in {
+            model_id = getattr(payload, "stock_model_id", None)
+            room_id = getattr(payload, "room_template_id", None)
+            if model_id and room_id:
+                fail("template_conflict", "Select either a model or a room template.")
+            room_category = product["category"] in {"furniture", "decor", "curtains"}
+            if (
+                model_id
+                and product["category"]
+                in {"shoes", "watch", "furniture", "decor", "curtains"}
+            ) or (room_id and not room_category):
+                fail(
+                    "template_category",
+                    "Choose a model for clothing or a room template for room products.",
+                )
+            local_composite = (
+                room_category
+                and self.settings.room_provider == "composite"
+                and (operation == "tryon" or bool(room_id))
+            )
+            uses_primary = (operation == "catalog" and not model_id) or product[
+                "category"
+            ] in {
                 "shoes",
                 "watch",
                 "furniture",
+                "decor",
+                "curtains",
             }
-            if not self.settings.fixture and (
-                not (
-                    self.settings.tryon_configured
-                    if not uses_primary
-                    else self.settings.provider_configured
+            if (
+                not self.settings.fixture
+                and not local_composite
+                and (
+                    not (
+                        self.settings.tryon_configured
+                        if not uses_primary
+                        else self.settings.provider_configured
+                    )
+                    or self.settings.generation_allowance < 1
                 )
-                or self.settings.generation_allowance < 1
             ):
                 fail(
                     "provider_not_configured",
@@ -151,8 +184,10 @@ class GenerationService:
             if operation == "catalog":
                 check_version(product, payload.version)
             if (
-                product["category"] in {"shoes", "watch", "furniture"}
+                product["category"]
+                in {"shoes", "watch", "furniture", "decor", "curtains"}
                 and not self.settings.fixture
+                and not local_composite
                 and not isinstance(self.provider, (CloudflareClient, GeminiClient))
             ):
                 fail(
@@ -178,7 +213,10 @@ class GenerationService:
                 )
             get_asset(db, reference)
             context = {
-                "provider": self.settings.tryon_name
+                "composite": local_composite,
+                "provider": "Local composite"
+                if local_composite
+                else self.settings.tryon_name
                 if not uses_primary
                 else self.settings.provider_name,
                 "view": payload.view,
@@ -192,6 +230,25 @@ class GenerationService:
                 ],
             }
             if operation == "catalog":
+                if model_id or room_id:
+                    template = db.execute(
+                        "SELECT * FROM library_images WHERE id=? AND kind=?",
+                        (
+                            model_id or room_id,
+                            "stock_model" if model_id else "room_template",
+                        ),
+                    ).fetchone()
+                    if not template:
+                        fail(
+                            "template_not_found",
+                            "This library photo is unavailable.",
+                            404,
+                        )
+                    get_asset(db, template["asset_id"])
+                    context.update(
+                        template_asset_id=template["asset_id"],
+                        template_kind=template["kind"],
+                    )
                 context.update(presentation=payload.presentation, scene=payload.scene)
                 anchor = next(
                     (
@@ -203,14 +260,18 @@ class GenerationService:
                 )
                 if (
                     anchor
+                    and not model_id
+                    and not room_id
                     and isinstance(self.provider, (CloudflareClient, GeminiClient))
-                    and product["category"] not in {"shoes", "watch", "furniture"}
+                    and product["category"]
+                    not in {"shoes", "watch", "furniture", "decor", "curtains"}
                 ):
                     context["catalog_anchor_id"] = anchor
             else:
                 ids = [product_id, *payload.additional_product_ids]
                 if (
-                    product["category"] in {"shoes", "watch", "furniture"}
+                    product["category"]
+                    in {"shoes", "watch", "furniture", "decor", "curtains"}
                     and payload.additional_product_ids
                 ):
                     fail("outfit_conflict", "Preview this product on its own.")
@@ -229,7 +290,13 @@ class GenerationService:
                     )
                 for extra_id in payload.additional_product_ids:
                     extra = load_product(db, extra_id, public=True)
-                    if extra["category"] in {"shoes", "watch", "furniture"}:
+                    if extra["category"] in {
+                        "shoes",
+                        "watch",
+                        "furniture",
+                        "decor",
+                        "curtains",
+                    }:
                         fail(
                             "outfit_conflict",
                             "Preview accessories and furniture on their own product page.",
@@ -290,16 +357,14 @@ class GenerationService:
                     fail(
                         "photo_view_mismatch", "Upload a matching photo for this view."
                     )
-                if (metadata.get("purpose", "person") == "room") != (
-                    product["category"] == "furniture"
-                ):
+                if (metadata.get("purpose", "person") == "room") != room_category:
                     fail(
                         "photo_purpose_mismatch",
                         "Upload a room photo for furniture, or a personal photo for wearable products.",
                     )
                 context["measurements"] = metadata.get("measurements", {})
                 expires = photo["expires"]
-            if not self.settings.fixture:
+            if not self.settings.fixture and not local_composite:
                 used = db.execute(
                     "SELECT value FROM counters WHERE key='live_submissions'"
                 ).fetchone()[0]
@@ -474,8 +539,16 @@ class GenerationService:
                     "shoes",
                     "watch",
                     "furniture",
+                    "decor",
+                    "curtains",
                 }
-                provider = self.provider_for(job["operation"], category)
+                if context.get("template_kind") == "stock_model":
+                    uses_primary = False
+                provider = self.provider_for(
+                    job["operation"],
+                    category,
+                    context.get("template_kind") == "stock_model",
+                )
                 if job["fixture"]:
                     if job["status"] == "queued":
                         with self.db.connect(write=True) as db:
@@ -489,7 +562,9 @@ class GenerationService:
                 if job["status"] == "queued":
                     context = json.loads(job["context"])
                     if context.get("provider", self.settings.provider_name) != (
-                        self.settings.tryon_name
+                        "Local composite"
+                        if context.get("composite")
+                        else self.settings.tryon_name
                         if not uses_primary
                         else self.settings.provider_name
                     ):
@@ -507,6 +582,10 @@ class GenerationService:
                             if job["photo_id"]
                             else None
                         )
+                        if context.get("template_asset_id"):
+                            person_data = asset_path(
+                                self.db, get_asset(db, context["template_asset_id"])
+                            ).read_bytes()
                         extra_data = [
                             asset_path(
                                 self.db, get_asset(db, g["reference_id"])
@@ -528,12 +607,25 @@ class GenerationService:
                         "return_base64": True,
                         "output_format": "jpeg",
                         "category": category,
+                        "request_id": job["id"],
                     }
-                    if job["operation"] == "tryon":
+                    if context.get("composite"):
+                        image = composite_room(person_data, garment_data)
+                        with self.db.connect(write=True) as db:
+                            db.execute(
+                                "UPDATE jobs SET status='processing' WHERE id=? AND status='submitting'",
+                                (job["id"],),
+                            )
+                        self._finish(job, image)
+                        return
+                    if job["operation"] == "tryon" or context.get("template_kind") in {
+                        "stock_model",
+                        "room_template",
+                    }:
                         inputs["prompt"] = (
                             f"Keep the uploaded {context.get('view', 'front')} view and exact body shape, including neck fullness, shoulders, arms, waist and hips. Never slim or reshape the person. User-supplied measurements (reference only, not a fit guarantee): {json.dumps(context.get('measurements', {}))}."
                         )
-                        if category == "furniture":
+                        if category in {"furniture", "decor", "curtains"}:
                             inputs["prompt"] = (
                                 f"Keep the uploaded {context.get('view', 'front')} camera view and room geometry. Preserve the furniture's actual design."
                             )
@@ -549,7 +641,13 @@ class GenerationService:
                         view = context.get("view", "front")
                         direction = CATALOG_VIEWS[view]
                         subject = f"An adult {context.get('presentation', 'women')} fashion model with a natural, individual face, realistic skin texture and body proportions."
-                        if category in {"shoes", "watch", "furniture"}:
+                        if category in {
+                            "shoes",
+                            "watch",
+                            "furniture",
+                            "decor",
+                            "curtains",
+                        }:
                             direction = f"Full product {view} view. Show the {view} side of the object clearly, rotating the object to the requested angle."
                             subject = f"The exact {category} product, with no people or clothing model."
                         inputs.update(
@@ -565,7 +663,8 @@ class GenerationService:
                                 " The second reference supplies model identity ONLY. Keep the same adult's face, hair and body shape, but do NOT copy its pose or camera angle. Rotate the entire body to the required camera composition. The first reference remains the product detail source."
                             )
                     if isinstance(
-                        provider, (GeminiClient, CloudflareClient, FashnDemoClient)
+                        provider,
+                        (GeminiClient, CloudflareClient, FashnDemoClient, KaggleClient),
                     ):
                         image = provider.generate(inputs)
                         with self.db.connect(write=True) as db:
@@ -622,6 +721,12 @@ class GenerationService:
 
     def _finish(self, job, content):
         image = decode_image(content)
+        if not job["fixture"] and not json.loads(job["context"]).get("composite"):
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((0, image.height - 28, 140, image.height), fill="#244737")
+            draw.text(
+                (8, image.height - 23), "AI Generated", fill="white", font_size=18
+            )
         with self.db.connect() as db:
             current = db.execute(
                 "SELECT status,expires FROM jobs WHERE id=?", (job["id"],)
@@ -710,7 +815,8 @@ class GenerationService:
 
     @staticmethod
     def _data_uri(content):
-        return "data:image/jpeg;base64," + base64.b64encode(content).decode()
+        mime = "png" if content.startswith(b"\x89PNG") else "jpeg"
+        return f"data:image/{mime};base64," + base64.b64encode(content).decode()
 
     def _fixture_image(self):
         from .config import ROOT

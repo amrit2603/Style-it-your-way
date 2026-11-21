@@ -7,6 +7,8 @@ web
 ## Stack
 User-selected local Next.js + FastAPI prototype, SQLite and private local files.
 
+Platform expansion is staged backend → Kaggle notebook → independent admin → independent customer app. The backend adds account/password authentication, server-priced unpaid orders, stock-model/room libraries and a Kaggle adapter while retaining the existing prototype and data. See docs/PLATFORM_BUILD.md and docs/BACKEND.md for checkpoint scope and verification.
+
 ## Users
 Shopkeepers prepare product catalogs; shoppers browse garments and preview them on their own photo. Initial testing uses consenting adults.
 

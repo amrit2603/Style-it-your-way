@@ -1,5 +1,9 @@
 # VYUMI Style It Your Way
 
+The expanded e-commerce platform is being built in checkpoints: **backend → GPU notebook → separate admin app → separate customer app**. The shared backend now includes accounts, orders, stock-model/room libraries and the notebook API adapter. See [backend setup](docs/BACKEND.md) and [checkpoint evidence](docs/CHECKPOINT_RESULTS.md). The existing storefront below remains available during this work; the separate apps are not yet implemented.
+
+GPU notebooks: [Colab](notebooks/vyumi_idmvton_colab.ipynb), [Kaggle](notebooks/vyumi_idmvton_kaggle.ipynb), [setup instructions](notebooks/README.md). Local schema/API-contract tests pass; real GPU inference must pass in the notebook before the admin phase starts. [Open the Colab notebook](https://colab.research.google.com/github/amrit2603/Style-it-your-way/blob/main/notebooks/vyumi_idmvton_colab.ipynb).
+
 A local Next.js + FastAPI prototype with two connected workflows:
 
 Collections now separate **Women, Men and Unisex**, with sarees, suits/sets, shirts, tops/T-shirts, trousers/jeans, skirts, dresses, kurtas, jackets/blazers and lehengas. Merchants set the collection/category and choose adult model presentation and studio/daylight/outdoor settings. Shoes, watches and furniture are also available as categories. A selected product opens its own styling page, with no garment switcher. The API retains up to three complementary clothing pieces for existing callers; the shopper page previews one product.

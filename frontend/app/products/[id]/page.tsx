@@ -86,7 +86,7 @@ export default function ProductPage({
               )}
               <Link className="gold wide" href={`/style/${product.id}`}>
                 <Icon name="spark" />
-                {product.category === "furniture"
+                {["furniture", "decor", "curtains"].includes(product.category)
                   ? "See it in my room"
                   : "Try it on me"}
               </Link>

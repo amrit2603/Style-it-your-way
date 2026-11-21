@@ -23,8 +23,10 @@ export default function TryOn({
   product: Product;
   view: string;
 }) {
-  const room = product.category === "furniture";
-  const primary = ["shoes", "watch", "furniture"].includes(product.category);
+  const room = ["furniture", "decor", "curtains"].includes(product.category);
+  const primary = ["shoes", "watch", "furniture", "decor", "curtains"].includes(
+    product.category,
+  );
   const endpoint = `/style-it/generate?product=${product.id}&view=${view}`;
   const storageKey = `vyumi-look:${product.id}:${view}`;
   const [health, setHealth] = useState<Health>(),
@@ -41,9 +43,11 @@ export default function TryOn({
     [size, setSize] = useState("");
   const fileInput = useRef<HTMLInputElement>(null),
     uploading = useRef(false);
-  const ready = primary
-    ? (health?.catalog_ready ?? health?.provider_ready)
-    : health?.provider_ready;
+  const ready = room
+    ? (health?.room_ready ?? health?.catalog_ready ?? health?.provider_ready)
+    : primary
+      ? (health?.catalog_ready ?? health?.provider_ready)
+      : health?.provider_ready;
   const processing = !!job && !terminal(job);
   useEffect(() => {
     let active = true;
@@ -190,7 +194,12 @@ export default function TryOn({
       setBusy(false);
     }
   };
-  const provider = primary ? health?.catalog_provider : health?.provider;
+  const provider =
+    room && health?.room_provider === "composite"
+      ? "Local composite"
+      : primary
+        ? health?.catalog_provider
+        : health?.provider;
   const privacy =
     provider === "FASHN demo"
       ? "https://huggingface.co/privacy"
@@ -299,9 +308,15 @@ export default function TryOn({
           <p className="privacy-note">
             Processed by {provider || "the image service"}. Private in this app;
             deleted locally after one hour.{" "}
-            <a href={privacy} target="_blank" rel="noreferrer">
-              Provider privacy
-            </a>
+            {provider === "Kaggle" ? (
+              <span>The store’s GPU notebook receives your photo.</span>
+            ) : provider === "Local composite" ? (
+              <span>Room placement runs locally and is not to scale.</span>
+            ) : (
+              <a href={privacy} target="_blank" rel="noreferrer">
+                Provider privacy
+              </a>
+            )}
           </p>
         </>
       )}
@@ -354,7 +369,11 @@ export default function TryOn({
                 }
               />
               <figcaption>
-                {job.fixture ? "Demo sample" : `${view} preview`}
+                {job.fixture
+                  ? "Demo sample"
+                  : job.visualization_kind === "room_composite"
+                    ? "Room placement demo"
+                    : `${view} preview`}
               </figcaption>
             </figure>
           </div>

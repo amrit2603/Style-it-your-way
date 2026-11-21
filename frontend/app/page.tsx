@@ -175,7 +175,7 @@ export default function Store() {
                     router.push(`/style/${p.id}`);
                   }}
                 >
-                  {p.category === "furniture"
+                  {["furniture", "decor", "curtains"].includes(p.category)
                     ? "See it in my room"
                     : "Style it on me"}{" "}
                   <Icon name="arrow" size={16} />

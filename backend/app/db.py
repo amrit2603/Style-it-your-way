@@ -52,6 +52,15 @@ class Database:
                         / "migrations/001_job_context.sql"
                     ).read_text()
                 )
+            if "user_id" not in {
+                row[1] for row in db.execute("PRAGMA table_info(sessions)")
+            }:
+                db.executescript(
+                    (
+                        Path(__file__).resolve().parents[1]
+                        / "migrations/002_commerce.sql"
+                    ).read_text()
+                )
 
     @contextmanager
     def connect(self, write=False):
