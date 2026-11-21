@@ -139,6 +139,17 @@ if not safe_weights.exists():
 print('Memory-safe fp16 weights ready:', round(safe_weights.stat().st_size / 1024**3, 2), 'GiB')
 """)
 
+markdown("""## Independent CUDA and API test, before credentials
+This uses the real model and two fictional adult demo images through an in-process HTTP client. It checks authentication and replays the same request without generating twice. No socket or tunnel opens and no user token is needed. Inspect the result; success is not a face/garment accuracy benchmark.
+""")
+
+code("""
+runtime_env.update(VYUMI_IDM_MODEL=str(MODEL), VYUMI_SMOKE_RESULT=str(RUNTIME / 'smoke-result.jpg'))
+run_checked([str(PYTHON), str(PROJECT / 'ai-services/smoke_test.py')], env=runtime_env)
+from IPython.display import display, Image as DisplayImage
+display(DisplayImage(filename=str(RUNTIME / 'smoke-result.jpg')))
+""")
+
 markdown("""## Start the authenticated API
 `/health` reports ready only after the model is loaded. `/try-on` accepts person and garment uploads, a clothing category, Bearer authentication and a stable `X-Request-ID`. The service serializes inference and caches two successful requests for up to one hour so a timeout retry does not generate twice. Inputs are not written to a public directory. Outputs and process memory disappear when the session ends; local deletion in the storefront cannot erase data already received by an external GPU host.
 """)
