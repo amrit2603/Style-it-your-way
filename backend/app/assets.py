@@ -33,7 +33,10 @@ def decode_image(content: bytes, *, minimum=True, preserve_alpha=False):
                 if source.width * source.height > 25_000_000:
                     fail("photo_pixels", "Choose a photo smaller than 25 megapixels.")
                 image = ImageOps.exif_transpose(source).convert(
-                    "RGBA" if preserve_alpha and "A" in source.getbands() else "RGB"
+                    "RGBA"
+                    if preserve_alpha
+                    and ("A" in source.getbands() or "transparency" in source.info)
+                    else "RGB"
                 )
                 image.load()
     except (

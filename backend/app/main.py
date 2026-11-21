@@ -487,7 +487,7 @@ def create_app(settings=None):
             float | None, Form(ge=10, le=150, allow_inf_nan=False)
         ] = None,
         view: Annotated[View, Form()] = "front",
-        purpose: Annotated[Literal["person", "room"], Form()] = "person",
+        purpose: Annotated[Literal["person", "room", "wrist"], Form()] = "person",
     ):
         session = current_session(request)
         if consent != "true":
@@ -519,6 +519,12 @@ def create_app(settings=None):
                 "accepted": True,
                 "code": "room_uploaded",
                 "message": "Room photo uploaded. Furniture placement is an approximate visualization.",
+            }
+        elif purpose == "wrist":
+            checks = {
+                "accepted": True,
+                "code": "wrist_uploaded",
+                "message": "Wrist photo uploaded. Keep the wrist clear and well lit for an accessory preview.",
             }
         else:
             checks = await run_in_threadpool(check_person, image)

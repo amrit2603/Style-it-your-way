@@ -451,3 +451,98 @@ def test_kaggle_contract_auth_order_and_retry_idempotency(monkeypatch):
 def test_kaggle_origin_rejects_unsafe_configuration(url):
     with pytest.raises(ValueError):
         service_origin(url)
+
+
+def test_existing_editor_does_not_erase_new_product_colors(fixture_client, fixture_app):
+    client, app = fixture_client, fixture_app
+    h = session(client, True)
+    item = priced_product(client, app, h)
+    result = client.put(
+        "/merchant/products/" + item["id"],
+        headers=h,
+        json={
+            key: item[key]
+            for key in (
+                "version",
+                "sku",
+                "name",
+                "category",
+                "description",
+                "currency",
+                "sizes",
+            )
+        },
+    )
+    assert result.status_code == 200 and result.json()["colors"] == ["Blue", "White"]
+
+
+def test_palette_png_transparency_survives_product_decode():
+    image = Image.new("P", (600, 900), 0)
+    image.putpalette([255, 255, 255] + [0, 0, 0] * 255)
+    output = io.BytesIO()
+    image.save(output, "PNG", transparency=0)
+    decoded = decode_image(output.getvalue(), preserve_alpha=True)
+    assert decoded.mode == "RGBA" and decoded.getpixel((0, 0))[3] == 0
+
+
+def test_room_compositor_rejects_extreme_aspect_ratio_before_upscaling():
+    from app.provider import ProviderError
+
+    with pytest.raises(ProviderError) as caught:
+        composite_room(photo((12000, 128)), cutout())
+    assert caught.value.code == "room_framing"
+
+
+def test_watch_accepts_wrist_photo_but_wrist_cannot_bypass_clothing_validation(
+    fixture_app, fixture_client, monkeypatch
+):
+    from app import main
+    from app.provider import CloudflareClient
+
+    client, app = fixture_client, fixture_app
+    h = session(client, True)
+    watch = piece(client, app, h, "watch")
+    shirt = piece(client, app, h, "shirt")
+    settings = app.state.settings
+    settings.generation_mode = "live"
+    settings.generation_allowance = 10
+    settings.cloudflare_account_id = "a" * 32
+    settings.cloudflare_api_token = "test-token"
+    app.state.generation.provider = CloudflareClient(
+        settings.cloudflare_account_id, settings.cloudflare_api_token
+    )
+    monkeypatch.setattr(
+        main,
+        "check_person",
+        lambda image: pytest.fail("Wrist upload must not require a face"),
+    )
+    result = client.post(
+        "/api/tryon",
+        headers=h,
+        files={"person_image": ("wrist.png", photo())},
+        data={
+            "product_id": watch["id"],
+            "consent": "true",
+            "idempotency_key": str(uuid.uuid4()),
+        },
+    )
+    assert result.status_code == 200, result.text
+    uploaded = client.post(
+        "/style-it/photos",
+        headers=h,
+        files={"file": ("wrist.png", photo())},
+        data={"purpose": "wrist", "consent": "true"},
+    ).json()
+    result = client.post(
+        "/style-it/generate",
+        headers=h,
+        json={
+            "product_id": shirt["id"],
+            "user_image_id": uploaded["id"],
+            "idempotency_key": str(uuid.uuid4()),
+        },
+    )
+    assert (
+        result.status_code == 422
+        and result.json()["detail"]["code"] == "photo_purpose_mismatch"
+    )

@@ -106,7 +106,9 @@ class GenerationService:
                 {
                     "operation": operation,
                     "product_id": product_id,
-                    **payload.model_dump(exclude={"idempotency_key"}, exclude_none=True),
+                    **payload.model_dump(
+                        exclude={"idempotency_key"}, exclude_none=True
+                    ),
                 },
                 sort_keys=True,
             ).encode()
@@ -357,7 +359,10 @@ class GenerationService:
                     fail(
                         "photo_view_mismatch", "Upload a matching photo for this view."
                     )
-                if (metadata.get("purpose", "person") == "room") != room_category:
+                if (metadata.get("purpose", "person") == "room") != room_category or (
+                    metadata.get("purpose") == "wrist"
+                    and product["category"] != "watch"
+                ):
                     fail(
                         "photo_purpose_mismatch",
                         "Upload a room photo for furniture, or a personal photo for wearable products.",

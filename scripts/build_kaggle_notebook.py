@@ -45,12 +45,18 @@ code("""
 import os, sys, subprocess, urllib.request, tarfile, shutil, time, json
 from pathlib import Path
 
+def run_checked(command, **kwargs):
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, **kwargs)
+    print(result.stdout[-12000:])
+    result.check_returncode()
+    return result
+
 RUNTIME = Path('/kaggle/working/vyumi-runtime') if Path('/kaggle').exists() else Path('/content/vyumi-runtime')
 RUNTIME.mkdir(parents=True, exist_ok=True)
 PROJECT = RUNTIME / 'platform'
 PROJECT_REPO = 'https://github.com/amrit2603/Style-it-your-way.git'
 if not PROJECT.exists():
-    subprocess.run(['git', 'clone', '--depth', '1', PROJECT_REPO, str(PROJECT)], check=True)
+    run_checked(['git', 'clone', '--depth', '1', PROJECT_REPO, str(PROJECT)])
 assert (PROJECT / 'ai-services/serve.py').is_file(), 'Use the repository revision containing the Kaggle service'
 print('Runtime directory:', RUNTIME)
 print('Free disk (GiB):', round(shutil.disk_usage(RUNTIME).free / 1024**3, 1))
@@ -72,11 +78,11 @@ if not MICROMAMBA.exists():
 ENV = RUNTIME / 'python310'
 PYTHON = ENV / 'bin/python'
 if not PYTHON.exists():
-    subprocess.run([str(MICROMAMBA), 'create', '-y', '-p', str(ENV), '-c', 'conda-forge', 'python=3.10', 'pip=23.3.1'], check=True)
-subprocess.run([str(MICROMAMBA), 'install', '-y', '-p', str(ENV), '-c', 'nvidia/label/cuda-11.8.0', '-c', 'conda-forge', 'cuda-toolkit=11.8', 'gcc_linux-64=11', 'gxx_linux-64=11'], check=True)
-subprocess.run([str(PYTHON), '-m', 'pip', 'install', 'torch==2.0.1', 'torchvision==0.15.2', '--index-url', 'https://download.pytorch.org/whl/cu118'], check=True)
-subprocess.run([str(PYTHON), '-m', 'pip', 'install', '-r', str(PROJECT / 'ai-services/requirements-kaggle.txt')], check=True)
-subprocess.run([str(PYTHON), '-c', 'import torch; assert torch.cuda.is_available(), "Enable a Kaggle CUDA GPU"; print("CUDA ready:", torch.cuda.get_device_name(0))'], check=True)
+    run_checked([str(MICROMAMBA), 'create', '-y', '-p', str(ENV), '-c', 'conda-forge', 'python=3.10', 'pip=23.3.1'])
+run_checked([str(MICROMAMBA), 'install', '-y', '-p', str(ENV), '-c', 'nvidia/label/cuda-11.8.0', '-c', 'conda-forge', 'cuda-toolkit=11.8', 'gcc_linux-64=11', 'gxx_linux-64=11'])
+run_checked([str(PYTHON), '-m', 'pip', 'install', 'torch==2.0.1', 'torchvision==0.15.2', '--index-url', 'https://download.pytorch.org/whl/cu118'])
+run_checked([str(PYTHON), '-m', 'pip', 'install', '-r', str(PROJECT / 'ai-services/requirements-kaggle.txt')])
+run_checked([str(PYTHON), '-c', 'import torch; assert torch.cuda.is_available(), "Enable a Kaggle CUDA GPU"; print("CUDA ready:", torch.cuda.get_device_name(0))'])
 """)
 
 markdown("""## Fetch pinned upstream source and preprocessing dependencies
@@ -93,12 +99,12 @@ for url, destination, revision in [
     ('https://github.com/facebookresearch/detectron2.git', DETECTRON, DETECTRON_REVISION),
 ]:
     if not destination.exists():
-        subprocess.run(['git', 'clone', url, str(destination)], check=True)
-    subprocess.run(['git', '-C', str(destination), 'checkout', revision], check=True)
+        run_checked(['git', 'clone', url, str(destination)])
+    run_checked(['git', '-C', str(destination), 'checkout', revision])
     assert subprocess.check_output(['git', '-C', str(destination), 'rev-parse', 'HEAD'], text=True).strip() == revision
 build_env = dict(os.environ, CUDA_HOME=str(ENV), PATH=str(ENV / 'bin') + ':' + os.environ['PATH'], FORCE_CUDA='1', MAX_JOBS='2', CC=str(ENV / 'bin/x86_64-conda-linux-gnu-gcc'), CXX=str(ENV / 'bin/x86_64-conda-linux-gnu-g++'))
-subprocess.run([str(PYTHON), '-m', 'pip', 'install', '--no-build-isolation', str(DETECTRON)], env=build_env, check=True)
-subprocess.run([str(PYTHON), '-m', 'pip', 'install', '--no-build-isolation', str(DETECTRON / 'projects/DensePose')], env=build_env, check=True)
+run_checked([str(PYTHON), '-m', 'pip', 'install', '-v', '--no-build-isolation', str(DETECTRON)], env=build_env)
+run_checked([str(PYTHON), '-m', 'pip', 'install', '-v', '--no-build-isolation', '--no-deps', str(DETECTRON / 'projects/DensePose')], env=build_env)
 """)
 
 code("""
@@ -110,8 +116,8 @@ for filename in ['ckpt/densepose/model_final_162be9.pkl','ckpt/humanparsing/pars
     hf_hub_download(repo_id='yisol/IDM-VTON', repo_type='space', revision='906d38c8a74e7c1cd0bf714a363fe2e939fa28b8', filename=filename, local_dir=os.environ['VYUMI_IDM_SOURCE'])
 open(os.environ['VYUMI_MODEL_PATH_FILE'], 'w').write(model_dir)
 '''
-runtime_env = dict(os.environ, HF_HOME=str(RUNTIME / 'hf-cache'), VYUMI_IDM_SOURCE=str(IDM), VYUMI_MODEL_PATH_FILE=str(RUNTIME / 'model-path.txt'))
-subprocess.run([str(PYTHON), '-c', download_script], env=runtime_env, check=True)
+runtime_env = dict(os.environ, MPLBACKEND='Agg', HF_HOME=str(RUNTIME / 'hf-cache'), VYUMI_IDM_SOURCE=str(IDM), VYUMI_MODEL_PATH_FILE=str(RUNTIME / 'model-path.txt'))
+run_checked([str(PYTHON), '-c', download_script], env=runtime_env)
 MODEL = Path((RUNTIME / 'model-path.txt').read_text().strip())
 assert MODEL.is_dir()
 """)
@@ -165,7 +171,7 @@ with httpx.Client(timeout=180) as client:
 print('Live inference completed in', round(time.monotonic()-started,1), 'seconds. Inspect identity and garment details.')
 '''
 runtime_env.update(VYUMI_PROJECT=str(PROJECT), VYUMI_SMOKE_RESULT=str(RUNTIME / 'smoke-result.jpg'))
-subprocess.run([str(PYTHON), '-c', smoke_script], env=runtime_env, check=True)
+run_checked([str(PYTHON), '-c', smoke_script], env=runtime_env)
 from IPython.display import display, Image as DisplayImage
 display(DisplayImage(filename=str(RUNTIME / 'smoke-result.jpg')))
 """)

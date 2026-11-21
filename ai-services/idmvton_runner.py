@@ -15,6 +15,8 @@ PREPROCESS_REVISION = "906d38c8a74e7c1cd0bf714a363fe2e939fa28b8"
 
 class IDMRunner:
     def __init__(self, source_dir, model_dir):
+        # Colab's inline backend is unavailable in the isolated service environment.
+        os.environ["MPLBACKEND"] = "Agg"
         import torch
 
         if not torch.cuda.is_available():
@@ -41,6 +43,20 @@ class IDMRunner:
                 break
             if "base_path" in names:
                 node.value = ast.Constant(str(Path(model_dir).resolve()))
+            if set(names) & {
+                "unet",
+                "UNet_Encoder",
+                "text_encoder_one",
+                "text_encoder_two",
+                "image_encoder",
+                "vae",
+            }:
+                # Avoid retaining every large component in Colab's limited system RAM.
+                node.value = ast.Call(
+                    func=ast.Attribute(value=node.value, attr="to", ctx=ast.Load()),
+                    args=[ast.Name(id="device", ctx=ast.Load())],
+                    keywords=[],
+                )
             nodes.append(node)
         self.scope = {
             "__name__": "vyumi_idm_runtime",
@@ -54,6 +70,8 @@ class IDMRunner:
             ),
             self.scope,
         )
+        self.scope["pipe"].enable_attention_slicing("max")
+        self.scope["pipe"].enable_vae_slicing()
         self.original_mask = self.scope["get_mask_location"]
 
     def __call__(self, person, garment, category):

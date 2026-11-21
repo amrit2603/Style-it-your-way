@@ -1,4 +1,6 @@
 # Isolated Python 3.10 runtime, paired with the upstream PyTorch 2.0.1 CUDA 11.8 stack.
+# PyTorch 2.0's extension builder imports pkg_resources.packaging.
+setuptools==69.5.1
 accelerate==0.25.0
 transformers==4.36.2
 diffusers==0.25.0
@@ -7,6 +9,7 @@ numpy==1.26.4
 Pillow==10.4.0
 einops==0.7.0
 scipy==1.11.1
+scikit-image==0.22.0
 opencv-python-headless==4.10.0.84
 onnxruntime==1.16.2
 fvcore==0.1.5.post20221221

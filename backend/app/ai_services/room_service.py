@@ -8,12 +8,20 @@ def composite_room(room_bytes, product_bytes):
     """Explicit demo placement; no inferred room dimensions or generative inpainting."""
     with Image.open(io.BytesIO(room_bytes)) as source:
         room = source.convert("RGB")
+    if max(room.size) > 4 * min(room.size):
+        from ..provider import ProviderError
+
+        raise ProviderError(
+            "room_framing",
+            "Use a normally framed room photo rather than a very narrow panorama.",
+        )
     room.thumbnail((1600, 1600))
     if min(room.size) < 512:
         ratio = 512 / min(room.size)
         room = room.resize((round(room.width * ratio), round(room.height * ratio)))
     with Image.open(io.BytesIO(product_bytes)) as source:
         product = source.convert("RGBA")
+    product.thumbnail((1600, 1600))
     if product.getchannel("A").getextrema() == (255, 255):
         # shortcut: plain-background cutouts only; use transparent PNG for textured backgrounds.
         pixels = np.asarray(product).copy()

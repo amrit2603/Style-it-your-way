@@ -474,7 +474,12 @@ def install(app, upload_person):
         if product["category"] in {"furniture", "decor", "curtains"}:
             fail("category_invalid", "Use room visualization for this product.")
         photo_id = await upload_once(
-            request, person_image, product_id, consent, idempotency_key, "person"
+            request,
+            person_image,
+            product_id,
+            consent,
+            idempotency_key,
+            "wrist" if product["category"] == "watch" else "person",
         )
         return generation.submit(
             current_session(request),

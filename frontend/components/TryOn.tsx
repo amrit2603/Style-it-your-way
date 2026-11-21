@@ -158,7 +158,7 @@ export default function TryOn({
       body.set("file", file);
       body.set("consent", "true");
       body.set("view", view);
-      body.set("purpose", room ? "room" : "person");
+      body.set("purpose", room ? "room" : product.category === "watch" ? "wrist" : "person");
       if (height) body.set("height_cm", height);
       if (weight) body.set("weight_kg", weight);
       if (width) body.set("body_width_cm", width);

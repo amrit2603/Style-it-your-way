@@ -92,7 +92,10 @@ def update_product(database, product_id, payload):
         product = load_product(db, product_id)
         check_version(product, payload.version)
         revise(product)
-        product.update(payload.model_dump(exclude={"version"}))
+        updates = payload.model_dump(exclude={"version"})
+        if "colors" not in payload.model_fields_set:
+            updates.pop("colors", None)
+        product.update(updates)
         save_draft(db, product)
     return response_product(product)
 

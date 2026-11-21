@@ -49,6 +49,7 @@ The selected model is the actual person input to the configured try-on provider;
 ## Customer visualization and GPU contract
 
 - `POST /api/tryon`: multipart `person_image`, `product_id`, `consent=true`, `idempotency_key`.
+- For watches, `person_image` may be a clear wrist photo; it does not require a visible face. Such uploads cannot be reused to bypass clothing-photo checks. The two-step photo route accepts `purpose=wrist` for this flow.
 - `POST /api/room-visualize`: multipart `room_image`, same metadata.
 - Both return the existing durable `Job`; poll `/api/style-it/jobs/{id}`. Personal input/result lifetime remains one hour and authorization remains session-specific. Multipart retries reuse the uploaded photo and job. The existing two-step `/style-it/photos` + `/style-it/generate` routes remain available.
 
