@@ -32,6 +32,7 @@ export type Product = {
   price_minor: number | null;
   currency: string;
   sizes: string;
+  colors?: string[];
   published: boolean;
   reference_id: string | null;
   images: ProductImage[];
@@ -69,7 +70,13 @@ export type Photo = {
   expires_at: number;
   checks: { accepted: boolean; code: string; message: string };
 };
-type Session = { role: string; csrf_token: string };
+export type Account = {
+  id: string;
+  name: string;
+  email: string;
+  role: "customer" | "admin";
+};
+type Session = { role: string; csrf_token: string; user?: Account };
 let session: Session | undefined;
 let pending: Promise<Session> | undefined;
 export class ApiError extends Error {
@@ -139,6 +146,32 @@ export async function merchantLogin(token: string) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
+    }),
+  );
+  return session;
+}
+export async function accountLogin(email: string, password: string) {
+  if (pending) await pending.catch(() => {});
+  session = await read<Session>(
+    await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }),
+  );
+  return session;
+}
+export async function accountSignup(
+  name: string,
+  email: string,
+  password: string,
+) {
+  if (pending) await pending.catch(() => {});
+  session = await read<Session>(
+    await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
     }),
   );
   return session;

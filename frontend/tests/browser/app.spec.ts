@@ -70,7 +70,7 @@ test("merchant uploads, generates, approves and publishes", async ({
     .fill("Browser test saree");
   await page.getByLabel("SKU", { exact: true }).fill(`BROWSER-${Date.now()}`);
   await page
-    .getByLabel("Garment details & included pieces")
+    .getByLabel("Product details & included pieces")
     .fill("A demonstration saree with blouse fabric. Browser workflow test.");
   await page.getByRole("button", { name: "Save & add images" }).click();
   await expect(
@@ -134,7 +134,13 @@ test("merchant uploads, generates, approves and publishes", async ({
     .getByRole("button", { name: "Generate catalog preview", exact: true })
     .click();
   await expect(page.getByRole("alert")).toBeVisible();
-  await expect.poll(async () => (await (await page.request.get(`/api/style-it/jobs/${jobs[0]}`)).json()).status).toBe("completed");
+  await expect
+    .poll(
+      async () =>
+        (await (await page.request.get(`/api/style-it/jobs/${jobs[0]}`)).json())
+          .status,
+    )
+    .toBe("completed");
   await page.reload();
   await page
     .locator(".editor-steps")
@@ -208,7 +214,7 @@ test("merchant imports a PDF garment region with accessible crop controls", asyn
   await page.getByLabel("Product name", { exact: true }).fill("PDF test suit");
   await page.getByLabel("SKU", { exact: true }).fill(`PDF-${Date.now()}`);
   await page
-    .getByLabel("Garment details & included pieces")
+    .getByLabel("Product details & included pieces")
     .fill("PDF crop import acceptance fixture.");
   await page.getByRole("button", { name: "Save & add images" }).click();
   await page.waitForURL(/step=images/);
